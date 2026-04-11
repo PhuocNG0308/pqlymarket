@@ -1,0 +1,3 @@
+[submodule "qrl-web3-wallet"]
+	path = qrl-web3-wallet
+	url = https://github.com/PhuocNG0308/qrl-web3-wallet.git

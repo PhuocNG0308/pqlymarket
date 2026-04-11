@@ -1,0 +1,71 @@
+<!-- Top Navigation Bar -->
+<nav class="flex justify-between items-center px-6 py-4 w-full sticky top-0 z-50 bg-black/80 backdrop-blur-xl text-sm tracking-tight border-b border-neutral-900/50">
+  <div class="flex items-center gap-8">
+    <a href="/" class="text-xl font-bold tracking-tighter text-primary">PQlymarket</a>
+    <div class="hidden md:flex gap-6 items-center">
+      <a class="<%= activePage === 'markets' ? 'text-primary font-bold border-b-2 border-primary pb-1' : 'text-neutral-400 hover:text-white transition-colors' %>" href="/">Markets</a>
+      <a class="<%= activePage === 'portfolio' ? 'text-primary font-bold border-b-2 border-primary pb-1' : 'text-neutral-400 hover:text-white transition-colors' %>" href="/portfolio">Portfolio</a>
+      <a class="<%= activePage === 'governance' ? 'text-primary font-bold border-b-2 border-primary pb-1' : 'text-neutral-400 hover:text-white transition-colors' %>" href="/governance">Governance</a>
+      <a class="<%= activePage === 'pql' ? 'text-primary font-bold border-b-2 border-primary pb-1' : 'text-neutral-400 hover:text-white transition-colors' %>" href="/pql">PQL Token</a>
+      <a class="<%= activePage === 'leaderboard' ? 'text-primary font-bold border-b-2 border-primary pb-1' : 'text-neutral-400 hover:text-white transition-colors' %>" href="/leaderboard">Leaderboard</a>
+      <a id="navCreateMarket" class="hidden <%= activePage === 'create' ? 'text-primary font-bold border-b-2 border-primary pb-1' : 'text-neutral-400 hover:text-white transition-colors' %>" href="/create">+ Create</a>
+    </div>
+  </div>
+  <div class="flex items-center gap-4">
+    <div class="hidden lg:flex bg-surface-container-lowest px-3 py-1.5 rounded items-center gap-2 border border-outline-variant/10">
+      <span class="material-symbols-outlined text-on-surface-variant text-sm">search</span>
+      <input class="bg-transparent border-none text-xs focus:ring-0 focus:outline-none placeholder:text-neutral-600 w-48 text-on-surface" placeholder="Search markets..." type="text" id="searchInput" />
+    </div>
+
+    <!-- Wallet Area -->
+    <div id="walletWrapper" class="relative flex items-center gap-2">
+      <!-- Faucet Claim Button (visible when connected & eligible) -->
+      <button id="faucetClaimBtn" onclick="claimFromFaucet()" class="hidden bg-primary/10 text-primary border border-primary/30 px-3 py-2 font-bold hover:bg-primary/20 active:scale-95 duration-150 rounded flex items-center gap-2 text-xs">
+        <span class="material-symbols-outlined text-base" style="font-variation-settings: 'FILL' 1;">water_drop</span>
+        <span id="faucetBtnText">Claim 80k QRL</span>
+      </button>
+
+      <!-- Disconnected state: Connect button -->
+      <button id="connectWalletBtn" class="bg-primary text-on-primary px-4 py-2 font-bold hover:bg-primary-container active:scale-95 duration-150 rounded flex items-center gap-2" onclick="PQlyWallet.connect()">
+        <span class="material-symbols-outlined text-base" style="font-variation-settings: 'FILL' 1;">account_balance_wallet</span>
+        Connect Wallet
+      </button>
+
+      <!-- Connected state: Balance + Address button with dropdown -->
+      <span id="walletBalance" class="hidden text-xs font-mono text-primary font-bold"></span>
+      <button id="connectedWalletBtn" class="hidden bg-surface-container-highest text-on-surface px-4 py-2 font-bold hover:bg-surface-container-high active:scale-95 duration-150 rounded flex items-center gap-2" onclick="PQlyWallet.toggleMenu()">
+        <img id="walletIcon" src="" alt="" class="w-5 h-5 rounded hidden" />
+        <span id="walletAddress" class="text-xs font-mono">0x0000...0000</span>
+        <span class="material-symbols-outlined text-sm text-on-surface-variant">expand_more</span>
+      </button>
+
+      <!-- Account Dropdown Menu -->
+      <div id="accountMenu" class="hidden absolute right-0 top-full mt-2 w-56 bg-surface-container-low border border-outline-variant/10 rounded shadow-2xl z-[60] overflow-hidden">
+        <div class="p-3 border-b border-outline-variant/10">
+          <p class="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1">Connected Wallet</p>
+          <p id="menuWalletName" class="text-xs text-on-surface font-bold">Wallet</p>
+        </div>
+        <div class="p-1">
+          <button onclick="navigator.clipboard.writeText(PQlyWallet.getAccount() || ''); PQlyWallet.showToast('Address copied', 'success');" class="w-full flex items-center gap-3 px-3 py-2.5 text-xs text-on-surface hover:bg-surface-container-highest transition-colors rounded">
+            <span class="material-symbols-outlined text-base text-on-surface-variant">content_copy</span>
+            Copy Address
+          </button>
+          <a href="/portfolio" class="w-full flex items-center gap-3 px-3 py-2.5 text-xs text-on-surface hover:bg-surface-container-highest transition-colors rounded">
+            <span class="material-symbols-outlined text-base text-on-surface-variant">account_balance</span>
+            Portfolio
+          </a>
+          <button onclick="PQlyWallet.showPicker()" class="w-full flex items-center gap-3 px-3 py-2.5 text-xs text-on-surface hover:bg-surface-container-highest transition-colors rounded">
+            <span class="material-symbols-outlined text-base text-on-surface-variant">swap_horiz</span>
+            Switch Wallet
+          </button>
+        </div>
+        <div class="p-1 border-t border-outline-variant/10">
+          <button onclick="PQlyWallet.disconnect()" class="w-full flex items-center gap-3 px-3 py-2.5 text-xs text-red-400 hover:bg-red-500/10 transition-colors rounded">
+            <span class="material-symbols-outlined text-base">logout</span>
+            Disconnect
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</nav>

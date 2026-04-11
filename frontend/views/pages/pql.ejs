@@ -1,0 +1,477 @@
+<!-- PQL Token Bonding Curve Page -->
+<!-- Flash-prevention: hide "not connected" if wallet was previously connected -->
+<script>try{if(localStorage.getItem("pqly_wallet_rdns")){document.getElementById("pqlNotConnected")?.classList.add("hidden")}}catch(e){}</script>
+
+<section class="max-w-4xl mx-auto">
+  <div class="mb-6">
+    <a href="/" class="text-xs text-on-surface-variant hover:text-primary transition-colors uppercase tracking-widest">
+      &larr; Back to Markets
+    </a>
+  </div>
+
+  <div class="bg-surface-container-low p-8 border-l-4 border-primary mb-8">
+    <div class="flex items-center gap-3 mb-4">
+      <span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings: 'FILL' 1;">token</span>
+      <h1 class="text-3xl md:text-4xl font-extrabold text-on-surface tracking-tight leading-tight">PQL / QRL</h1>
+      <span id="curveStatus" class="bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-bold tracking-widest uppercase">Active</span>
+    </div>
+    <p class="text-sm text-on-surface-variant max-w-2xl">
+      Trade PQL governance tokens via the bonding curve. Price increases as supply grows.
+      When the curve reaches the 35,500 QRL hard cap (~500 PQL), liquidity graduates to the AMM pool.
+    </p>
+  </div>
+
+  <!-- Curve Stats -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+    <div class="bg-surface-container p-4">
+      <p class="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1">PQL Price</p>
+      <p id="statPrice" class="text-xl font-black text-primary">—</p>
+    </div>
+    <div class="bg-surface-container p-4">
+      <p class="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1">PQL Supply</p>
+      <p id="statSupply" class="text-xl font-black text-on-surface">—</p>
+    </div>
+    <div class="bg-surface-container p-4">
+      <p class="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1">QRL Reserve</p>
+      <p id="statReserve" class="text-xl font-black text-on-surface">—</p>
+    </div>
+    <div class="bg-surface-container p-4">
+      <p class="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1">QRL Hard Cap</p>
+      <p id="statHardcap" class="text-xl font-black text-on-surface">—</p>
+    </div>
+  </div>
+
+  <!-- Progress Bar -->
+  <div class="bg-surface-container p-4 mb-8">
+    <div class="flex justify-between text-xs text-on-surface-variant mb-2">
+      <span>Graduation Progress</span>
+      <span id="progressPercent">0%</span>
+    </div>
+    <div class="w-full bg-surface-container-highest h-3 rounded-full overflow-hidden">
+      <div id="progressBar" class="bg-primary h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+    </div>
+  </div>
+
+  <!-- Not Connected State -->
+  <div id="pqlNotConnected" class="bg-surface-container p-8 text-center mb-8">
+    <span class="material-symbols-outlined text-4xl text-on-surface-variant mb-4">account_balance_wallet</span>
+    <p class="text-sm text-on-surface-variant mb-4">Connect your wallet to trade PQL / QRL</p>
+    <button onclick="PQlyWallet.connect()" class="bg-primary text-on-primary font-bold px-6 py-3 hover:bg-primary-container active:scale-95 transition-all">
+      Connect Wallet
+    </button>
+  </div>
+
+  <!-- Connected: Trading panels -->
+  <div id="pqlConnected" class="hidden">
+    <!-- User Balances — show both QRL and PQL -->
+    <div class="grid grid-cols-2 gap-4 mb-6">
+      <div class="bg-surface-container p-4">
+        <p class="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1">Your QRL Balance</p>
+        <p id="userQrlBalance" class="text-2xl font-black text-on-surface">—</p>
+      </div>
+      <div class="bg-surface-container p-4">
+        <p class="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1">Your PQL Balance</p>
+        <p id="userPqlBalance" class="text-2xl font-black text-primary">—</p>
+      </div>
+    </div>
+
+    <!-- Buy / Sell Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+
+      <!-- Buy PQL (QRL → PQL) -->
+      <div class="bg-surface-container p-6">
+        <div class="flex items-center gap-2 mb-4">
+          <h3 class="text-sm font-bold text-on-surface uppercase tracking-wider">Buy PQL</h3>
+          <span class="text-[10px] text-on-surface-variant bg-surface-container-highest px-2 py-0.5 tracking-wider">QRL → PQL</span>
+        </div>
+
+        <!-- You Pay (QRL) -->
+        <div class="flex items-center justify-between mb-0.5">
+          <label class="text-[10px] text-on-surface-variant uppercase tracking-widest">You Pay</label>
+          <button type="button" onclick="setMaxBuyQrl()" class="text-[10px] font-bold text-primary hover:text-primary-container uppercase tracking-wider cursor-pointer">Max</button>
+        </div>
+        <div class="flex items-center bg-surface-container-highest mb-3">
+          <input type="number" id="buyQrlAmount" placeholder="0.0" min="0.001" step="0.001"
+                 class="flex-1 bg-transparent text-on-surface text-sm px-4 py-3 border-none focus:outline-none placeholder:text-neutral-600" />
+          <span class="text-xs font-bold text-on-surface-variant px-3">QRL</span>
+        </div>
+
+        <!-- Arrow -->
+        <div class="flex justify-center my-2">
+          <span class="material-symbols-outlined text-primary text-lg">arrow_downward</span>
+        </div>
+
+        <!-- You Receive (PQL) -->
+        <label class="text-[10px] text-on-surface-variant uppercase tracking-widest">You Receive (est.)</label>
+        <div class="flex items-center bg-surface-container-highest mb-2">
+          <input type="text" id="estimateBuyOut" readonly placeholder="0.0"
+                 class="flex-1 bg-transparent text-primary text-sm font-mono px-4 py-3 border-none focus:outline-none cursor-default" />
+          <span class="text-xs font-bold text-on-surface-variant px-3">PQL</span>
+        </div>
+        <p id="buyRate" class="text-[10px] text-on-surface-variant mb-4 h-4"></p>
+
+        <button id="btnBuyPql" onclick="executeBuyPql()"
+                class="w-full bg-primary text-on-primary font-bold py-3 hover:bg-primary-container active:scale-95 transition-all">
+          Buy PQL with QRL
+        </button>
+      </div>
+
+      <!-- Sell PQL (PQL → QRL) -->
+      <div class="bg-surface-container p-6 border-l-2 border-error/30">
+        <div class="flex items-center gap-2 mb-4">
+          <h3 class="text-sm font-bold text-on-surface uppercase tracking-wider">Sell PQL</h3>
+          <span class="text-[10px] text-on-surface-variant bg-surface-container-highest px-2 py-0.5 tracking-wider">PQL → QRL</span>
+        </div>
+
+        <!-- You Pay (PQL) -->
+        <div class="flex items-center justify-between mb-0.5">
+          <label class="text-[10px] text-on-surface-variant uppercase tracking-widest">You Pay</label>
+          <button type="button" onclick="setMaxSellPql()" class="text-[10px] font-bold text-primary hover:text-primary-container uppercase tracking-wider cursor-pointer">Max</button>
+        </div>
+        <div class="flex items-center bg-surface-container-highest mb-3">
+          <input type="number" id="sellPqlAmount" placeholder="0.0" min="0.001" step="0.001"
+                 class="flex-1 bg-transparent text-on-surface text-sm px-4 py-3 border-none focus:outline-none placeholder:text-neutral-600" />
+          <span class="text-xs font-bold text-on-surface-variant px-3">PQL</span>
+        </div>
+
+        <!-- Arrow -->
+        <div class="flex justify-center my-2">
+          <span class="material-symbols-outlined text-error text-lg">arrow_downward</span>
+        </div>
+
+        <!-- You Receive (QRL) -->
+        <label class="text-[10px] text-on-surface-variant uppercase tracking-widest">You Receive (est. after 2% fee)</label>
+        <div class="flex items-center bg-surface-container-highest mb-2">
+          <input type="text" id="estimateSellOut" readonly placeholder="0.0"
+                 class="flex-1 bg-transparent text-primary text-sm font-mono px-4 py-3 border-none focus:outline-none cursor-default" />
+          <span class="text-xs font-bold text-on-surface-variant px-3">QRL</span>
+        </div>
+        <p id="sellRate" class="text-[10px] text-on-surface-variant mb-4 h-4"></p>
+
+        <button id="btnSellPql" onclick="executeSellPql()"
+                class="w-full bg-error/80 text-on-error font-bold py-3 hover:bg-error active:scale-95 transition-all">
+          Sell PQL for QRL
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Graduated State -->
+  <div id="pqlGraduated" class="hidden bg-primary/5 border border-primary/20 p-6 mb-8">
+    <div class="flex items-center gap-3 mb-3">
+      <span class="material-symbols-outlined text-primary text-xl">check_circle</span>
+      <h3 class="text-sm font-bold text-primary uppercase tracking-wider">Curve Graduated</h3>
+    </div>
+    <p class="text-sm text-on-surface-variant">
+      The bonding curve has graduated! PQL is now trading on the liquidity pool AMM.
+      Trade on the pool for continuous QRL ↔ PQL swaps.
+    </p>
+  </div>
+
+  <!-- How it works -->
+  <div class="bg-surface-container p-6">
+    <h3 class="text-sm font-bold text-on-surface mb-4 uppercase tracking-wider">How the Bonding Curve Works</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-on-surface-variant">
+      <div>
+        <p class="text-primary font-bold mb-1">Linear Pricing</p>
+        <p>Price grows linearly with supply: price = 1 + 0.28 × supply. Base price is 1 QRL per PQL. Earlier buyers get a better price.</p>
+      </div>
+      <div>
+        <p class="text-primary font-bold mb-1">2% Sell Fee</p>
+        <p>Selling PQL back incurs a 2% fee that goes to the protocol treasury.</p>
+      </div>
+      <div>
+        <p class="text-primary font-bold mb-1">Graduation</p>
+        <p>When the curve reaches 35,500 QRL (~500 PQL), liquidity automatically migrates to a QRL/PQL AMM pool.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Flash-prevention: if previously connected, hide not-connected div immediately -->
+<script>try{if(localStorage.getItem("pqly_wallet_rdns")){var el=document.getElementById("pqlNotConnected");if(el){el.classList.add("hidden")}var el2=document.getElementById("pqlConnected");if(el2){el2.classList.remove("hidden")}}}catch(e){}</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var config = window.__PQLY_CONFIG__;
+  var bcAddr = config?.contracts?.BondingCurve;
+  var pqlAddr = config?.contracts?.PqlToken;
+
+  function weiToDisplay(val, decimals) {
+    return parseFloat(ethers.formatEther(val)).toLocaleString(undefined, {maximumFractionDigits: decimals || 4});
+  }
+
+  // Load curve info on page load (read-only, no wallet needed)
+  async function loadCurveInfo() {
+    if (!bcAddr) { document.getElementById('curveStatus').textContent = 'Not Deployed'; return; }
+    try {
+      var info = await PQlyWallet.readContract('BondingCurve', 'getCurveInfo', []);
+      if (!info) return;
+      // Result: [reserveBalance, curveSupply, price, hardcap, graduated, liquidityPool, protocolFees]
+      var reserve = info[0];
+      var supply = info[1];
+      var price = info[2];
+      var hardcap = info[3];
+      var graduated = info[4];
+
+      document.getElementById('statPrice').textContent = parseFloat(ethers.formatEther(price)).toFixed(6) + ' QRL';
+      document.getElementById('statSupply').textContent = weiToDisplay(supply, 2) + ' PQL';
+      document.getElementById('statReserve').textContent = weiToDisplay(reserve, 2) + ' QRL';
+      document.getElementById('statHardcap').textContent = weiToDisplay(hardcap, 0) + ' QRL';
+
+      var reserveNum = Number(reserve) / 1e18;
+      var hardcapNum = Number(hardcap) / 1e18;
+      var pct = hardcapNum > 0 ? Math.min(100, (reserveNum / hardcapNum) * 100) : 0;
+      document.getElementById('progressPercent').textContent = pct.toFixed(1) + '%';
+      document.getElementById('progressBar').style.width = pct + '%';
+
+      if (graduated) {
+        document.getElementById('curveStatus').textContent = 'Graduated';
+        document.getElementById('curveStatus').className = 'bg-green-500/10 text-green-400 px-2 py-0.5 text-[10px] font-bold tracking-widest uppercase';
+        document.getElementById('pqlGraduated').classList.remove('hidden');
+      }
+    } catch (e) {
+      console.warn('Failed to load curve info:', e);
+    }
+  }
+
+  // Load user QRL balance (native)
+  async function loadUserQrlBalance() {
+    var account = PQlyWallet.getAccount();
+    if (!account) return;
+    try {
+      var bal = await PQlyWallet.getBalance(account);
+      if (bal !== null && bal !== undefined) {
+        document.getElementById('userQrlBalance').textContent = weiToDisplay(bal, 4) + ' QRL';
+      }
+    } catch(e) { console.warn('QRL balance error:', e); }
+  }
+
+  // Load user PQL balance (ERC20)
+  async function loadUserPqlBalance() {
+    var account = PQlyWallet.getAccount();
+    if (!account || !pqlAddr) return;
+    try {
+      var result = await PQlyWallet.readContract('PqlToken', 'balanceOf', [account]);
+      if (result !== null && result !== undefined) {
+        var bal = result[0];
+        document.getElementById('userPqlBalance').textContent = weiToDisplay(bal, 4) + ' PQL';
+      }
+    } catch(e) { console.warn('PQL balance error:', e); }
+  }
+
+  function loadAllBalances() {
+    loadUserQrlBalance();
+    loadUserPqlBalance();
+  }
+
+  // Auto-import PQL token into wallet extension via EIP-747 (wallet_watchAsset)
+  var tokenImportAttempted = false;
+  async function suggestPqlToken() {
+    if (tokenImportAttempted || !pqlAddr) return;
+    tokenImportAttempted = true;
+    var provider = PQlyWallet.getWalletProvider();
+    if (!provider) return;
+    try {
+      await provider.request({
+        method: 'wallet_watchAsset',
+        params: { type: 'ERC20', options: { address: pqlAddr, symbol: 'PQL', decimals: 18 } }
+      });
+    } catch(e) { /* wallet may not support it — ignore silently */ }
+  }
+
+  // Estimate buy output (debounced)
+  var buyTimer = null;
+  document.getElementById('buyQrlAmount')?.addEventListener('input', function() {
+    var val = this.value;
+    clearTimeout(buyTimer);
+    var outEl = document.getElementById('estimateBuyOut');
+    var rateEl = document.getElementById('buyRate');
+    if (!val || parseFloat(val) <= 0 || !bcAddr) {
+      outEl.value = '';
+      rateEl.textContent = '';
+      return;
+    }
+    outEl.value = 'Estimating...';
+    rateEl.textContent = '';
+    buyTimer = setTimeout(async function() {
+      try {
+        var weiVal = ethers.parseEther(val);
+        var est = await PQlyWallet.readContract('BondingCurve', 'estimateBuy', [weiVal.toString()]);
+        if (est !== null && est !== undefined) {
+          var pqlWei = est[0];
+          outEl.value = weiToDisplay(pqlWei, 4);
+          var qrlNum = parseFloat(val);
+          var pqlNum = parseFloat(ethers.formatEther(pqlWei));
+          if (pqlNum > 0) {
+            rateEl.textContent = 'Effective rate: ~' + (qrlNum / pqlNum).toFixed(4) + ' QRL per PQL';
+          } else {
+            rateEl.textContent = '';
+          }
+        }
+      } catch(e) {
+        outEl.value = '—';
+        rateEl.textContent = 'Unable to estimate';
+      }
+    }, 300);
+  });
+
+  // Estimate sell output (debounced)
+  var sellTimer = null;
+  document.getElementById('sellPqlAmount')?.addEventListener('input', function() {
+    var val = this.value;
+    clearTimeout(sellTimer);
+    var outEl = document.getElementById('estimateSellOut');
+    var rateEl = document.getElementById('sellRate');
+    if (!val || parseFloat(val) <= 0 || !bcAddr) {
+      outEl.value = '';
+      rateEl.textContent = '';
+      return;
+    }
+    outEl.value = 'Estimating...';
+    rateEl.textContent = '';
+    sellTimer = setTimeout(async function() {
+      try {
+        var weiVal = ethers.parseEther(val);
+        var est = await PQlyWallet.readContract('BondingCurve', 'estimateSell', [weiVal.toString()]);
+        if (est !== null && est !== undefined) {
+          var qrlWei = est[0];
+          outEl.value = weiToDisplay(qrlWei, 4);
+          var pqlNum = parseFloat(val);
+          var qrlNum = parseFloat(ethers.formatEther(qrlWei));
+          if (pqlNum > 0) {
+            rateEl.textContent = 'Effective rate: ~' + (qrlNum / pqlNum).toFixed(4) + ' QRL per PQL (after 2% fee)';
+          } else {
+            rateEl.textContent = '';
+          }
+        }
+      } catch(e) {
+        outEl.value = '—';
+        rateEl.textContent = 'Unable to estimate';
+      }
+    }, 300);
+  });
+
+  // Buy PQL (QRL → PQL)
+  window.executeBuyPql = async function() {
+    var input = document.getElementById('buyQrlAmount');
+    var amt = input?.value;
+    if (!amt || parseFloat(amt) <= 0) { PQlyWallet.showToast('Enter a valid QRL amount', 'error'); return; }
+
+    var btn = document.getElementById('btnBuyPql');
+    btn.disabled = true; btn.textContent = 'Buying...';
+    try {
+      var value = "0x" + ethers.parseEther(amt).toString(16);
+      var tx = await PQlyWallet.writeContract('BondingCurve', 'buy', ['0'], { value: value });
+      PQlyWallet.showToast('Transaction sent. Waiting for confirmation...', 'info');
+      await tx.wait();
+      PQlyWallet.showToast('Swapped ' + amt + ' QRL → PQL!', 'success');
+      input.value = '';
+      document.getElementById('estimateBuyOut').value = '';
+      loadCurveInfo();
+      loadAllBalances();
+      suggestPqlToken();
+    } catch(e) {
+      PQlyWallet.showToast('Buy failed: ' + (e.message || e), 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Buy PQL with QRL';
+    }
+  };
+
+  // Sell PQL (PQL → QRL)
+  window.executeSellPql = async function() {
+    var input = document.getElementById('sellPqlAmount');
+    var amt = input?.value;
+    if (!amt || parseFloat(amt) <= 0) { PQlyWallet.showToast('Enter a valid PQL amount', 'error'); return; }
+
+    var btn = document.getElementById('btnSellPql');
+    btn.disabled = true; btn.textContent = 'Approving...';
+    try {
+      var weiVal = ethers.parseEther(amt);
+      // Step 1: Approve BondingCurve to spend PQL tokens
+      var approveTx = await PQlyWallet.writeContract('PqlToken', 'approve', [bcAddr, weiVal.toString()]);
+      await approveTx.wait();
+
+      // Step 2: Sell PQL for QRL
+      btn.textContent = 'Selling...';
+      var sellTx = await PQlyWallet.writeContract('BondingCurve', 'sell', [weiVal.toString(), '0']);
+      PQlyWallet.showToast('Transaction sent. Waiting for confirmation...', 'info');
+      await sellTx.wait();
+      PQlyWallet.showToast('Swapped ' + amt + ' PQL → QRL!', 'success');
+      input.value = '';
+      document.getElementById('estimateSellOut').value = '';
+      loadCurveInfo();
+      loadAllBalances();
+    } catch(e) {
+      PQlyWallet.showToast('Sell failed: ' + (e.message || e), 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Sell PQL for QRL';
+    }
+  };
+
+  // Max button handlers
+  window.setMaxBuyQrl = async function() {
+    var account = PQlyWallet.getAccount();
+    if (!account) { PQlyWallet.showToast('Connect wallet first', 'error'); return; }
+    try {
+      var bal = await PQlyWallet.getBalance(account);
+      if (bal !== null && bal !== undefined) {
+        var balBigInt = BigInt(bal);
+        // Reserve 0.1 QRL for gas fees
+        var gasReserve = ethers.parseEther('0.1');
+        if (balBigInt > gasReserve) balBigInt = balBigInt - gasReserve;
+        else balBigInt = 0n;
+        var input = document.getElementById('buyQrlAmount');
+        input.value = ethers.formatEther(balBigInt);
+        input.dispatchEvent(new Event('input'));
+      }
+    } catch(e) { console.warn('Max QRL error:', e); }
+  };
+
+  window.setMaxSellPql = async function() {
+    var account = PQlyWallet.getAccount();
+    if (!account) { PQlyWallet.showToast('Connect wallet first', 'error'); return; }
+    try {
+      var result = await PQlyWallet.readContract('PqlToken', 'balanceOf', [account]);
+      if (result !== null && result !== undefined) {
+        var bal = result[0];
+        var input = document.getElementById('sellPqlAmount');
+        input.value = ethers.formatEther(bal);
+        input.dispatchEvent(new Event('input'));
+      }
+    } catch(e) { console.warn('Max PQL error:', e); }
+  };
+
+  // Wallet state management
+  function updateWalletState() {
+    var account = PQlyWallet.getAccount();
+    if (account) {
+      document.getElementById('pqlNotConnected')?.classList.add('hidden');
+      document.getElementById('pqlConnected')?.classList.remove('hidden');
+      loadAllBalances();
+    } else {
+      document.getElementById('pqlNotConnected')?.classList.remove('hidden');
+      document.getElementById('pqlConnected')?.classList.add('hidden');
+    }
+  }
+
+  // Initialize — use PQlyWallet.onReady for auto-connect like all other pages
+  PQlyWallet.onReady(function(account) {
+    loadCurveInfo();
+    if (account) {
+      document.getElementById('pqlNotConnected')?.classList.add('hidden');
+      document.getElementById('pqlConnected')?.classList.remove('hidden');
+      loadAllBalances();
+      suggestPqlToken();
+    } else {
+      document.getElementById('pqlNotConnected')?.classList.remove('hidden');
+      document.getElementById('pqlConnected')?.classList.add('hidden');
+    }
+  });
+
+  // Re-check when wallet connects/disconnects
+  window.addEventListener('walletConnected', function() { updateWalletState(); loadCurveInfo(); suggestPqlToken(); });
+  window.addEventListener('walletDisconnected', function() { updateWalletState(); });
+});
+</script>

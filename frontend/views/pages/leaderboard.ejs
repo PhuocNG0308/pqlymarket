@@ -1,0 +1,49 @@
+<!-- Leaderboard Page -->
+<section class="max-w-5xl mx-auto">
+  <div class="mb-8">
+    <h1 class="text-3xl font-extrabold text-on-surface tracking-tight uppercase">Leaderboard</h1>
+    <div class="h-1 w-12 bg-primary mt-2"></div>
+    <p class="text-sm text-on-surface-variant mt-3">Top traders ranked by performance</p>
+  </div>
+
+  <!-- Period Tabs + Type Toggle -->
+  <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+    <!-- Period Tabs -->
+    <div class="flex gap-1 bg-surface-container-low p-1 rounded">
+      <button data-period="day" class="lb-period-btn px-4 py-2 text-xs font-bold uppercase tracking-wider rounded transition-colors text-on-surface-variant hover:text-on-surface">Day</button>
+      <button data-period="week" class="lb-period-btn px-4 py-2 text-xs font-bold uppercase tracking-wider rounded transition-colors text-on-surface-variant hover:text-on-surface">Week</button>
+      <button data-period="month" class="lb-period-btn px-4 py-2 text-xs font-bold uppercase tracking-wider rounded transition-colors text-on-surface-variant hover:text-on-surface">Month</button>
+      <button data-period="all" class="lb-period-btn px-4 py-2 text-xs font-bold uppercase tracking-wider rounded transition-colors bg-primary text-on-primary">All Time</button>
+    </div>
+    <!-- Type Toggle -->
+    <div class="flex gap-1 bg-surface-container-low p-1 rounded">
+      <button data-type="volume" class="lb-type-btn px-4 py-2 text-xs font-bold uppercase tracking-wider rounded transition-colors bg-primary text-on-primary">Volume</button>
+      <button data-type="profit" class="lb-type-btn px-4 py-2 text-xs font-bold uppercase tracking-wider rounded transition-colors text-on-surface-variant hover:text-on-surface">Profit</button>
+    </div>
+  </div>
+
+  <!-- Leaderboard Table -->
+  <div class="bg-surface-container-low p-6">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-[10px] text-on-surface-variant uppercase tracking-widest">
+            <th class="text-left pb-4">Rank</th>
+            <th class="text-left pb-4">Trader</th>
+            <th class="text-right pb-4" id="lbMetricHeader">Volume</th>
+            <th class="text-right pb-4">Trades</th>
+            <th class="text-right pb-4">Markets</th>
+          </tr>
+        </thead>
+        <tbody id="leaderboardBody" class="text-on-surface">
+          <tr>
+            <td colspan="5" class="py-12 text-center text-on-surface-variant text-xs">
+              <span class="material-symbols-outlined text-5xl mb-4 block">leaderboard</span>
+              Loading...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>

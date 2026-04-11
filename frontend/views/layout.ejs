@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/output.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+</head>
+<body class="bg-surface text-on-surface h-screen flex flex-col overflow-hidden selection:bg-primary selection:text-on-primary font-manrope">
+
+  <div class="flex-shrink-0 shrink-0">
+    <%- include('partials/navbar') %>
+  </div>
+
+  <div class="flex flex-1 overflow-hidden relative">
+    <%- include('partials/sidebar') %>
+
+    <main class="flex-1 overflow-y-auto p-6 lg:p-10 space-y-10 relative">
+      <%- body %>
+    </main>
+  </div>
+
+  <div class="flex-shrink-0 shrink-0 z-50">
+    <%- include('partials/footer') %>
+  </div>
+
+  <!-- Wallet Picker Modal (EIP-6963) -->
+  <div id="walletPickerOverlay" class="hidden fixed inset-0 z-[100] items-center justify-center bg-black/70 backdrop-blur-sm">
+    <div class="bg-surface-container-low w-full max-w-md mx-4 rounded-lg shadow-2xl border border-outline-variant/10 overflow-hidden">
+      <div class="flex items-center justify-between p-5 border-b border-outline-variant/10">
+        <div>
+          <h2 class="text-lg font-extrabold text-on-surface tracking-tight">Connect Wallet</h2>
+          <p class="text-[10px] text-on-surface-variant uppercase tracking-widest mt-1">Select a wallet to connect</p>
+        </div>
+        <button onclick="if(window.PQlyWallet){PQlyWallet.closePicker();}else{document.getElementById('walletPickerOverlay').classList.add('hidden');document.getElementById('walletPickerOverlay').classList.remove('flex');}" class="text-on-surface-variant hover:text-on-surface transition-colors p-1">
+          <span class="material-symbols-outlined text-xl">close</span>
+        </button>
+      </div>
+      <div id="walletPickerList" class="p-2 space-y-1 max-h-80 overflow-y-auto">
+        <!-- Wallet list populated by wallet.js -->
+      </div>
+      <div class="p-4 border-t border-outline-variant/10 text-center">
+        <p class="text-[10px] text-on-surface-variant">
+          Wallets detected via <span class="text-primary font-bold">EIP-6963</span> standard
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Wallet Popup Prompt Overlay — shown when extension popup fails to auto-open -->
+  <div id="walletPromptOverlay" class="hidden fixed inset-0 z-[110] items-center justify-center bg-black/70 backdrop-blur-sm">
+    <div class="bg-surface-container-low w-full max-w-sm mx-4 rounded-lg shadow-2xl border border-outline-variant/10 overflow-hidden text-center">
+      <div class="p-6 space-y-4">
+        <div class="relative inline-flex items-center justify-center">
+          <span class="absolute inline-flex h-16 w-16 rounded-full bg-primary/20 animate-ping"></span>
+          <span class="relative material-symbols-outlined text-5xl text-primary" style="font-variation-settings: 'FILL' 1;">
+            extension
+          </span>
+        </div>
+        <h3 class="text-base font-extrabold text-on-surface">Click the QRL Wallet Icon</h3>
+        <p class="text-sm text-on-surface-variant leading-relaxed">
+          The wallet extension needs your approval.<br/>
+          Click the <strong>QRL Web3 Wallet</strong> icon in your browser toolbar to continue.
+        </p>
+        <div class="flex items-center justify-center gap-2 text-xs text-on-surface-variant">
+          <span class="material-symbols-outlined text-sm animate-spin">progress_activity</span>
+          Waiting for wallet response&hellip;
+        </div>
+      </div>
+      <div class="p-4 border-t border-outline-variant/10">
+        <button id="walletPromptCancel" class="w-full px-4 py-2.5 text-sm font-bold rounded bg-surface-container-highest text-on-surface-variant hover:bg-error-container hover:text-on-error-container transition-colors">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Mobile Menu -->
+  <div class="md:hidden fixed bottom-6 right-6 z-50">
+    <button class="bg-primary text-on-primary h-14 w-14 rounded-full flex items-center justify-center shadow-2xl active:scale-95 transition-all">
+      <span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">add</span>
+    </button>
+  </div>
+
+  <!-- Disclaimer Modal -->
+  <div id="disclaimerOverlay" class="hidden fixed inset-0 z-[200] items-center justify-center bg-black/80 backdrop-blur-md">
+    <div class="bg-surface-container-low w-full max-w-lg mx-4 rounded-xl shadow-2xl border border-outline-variant/10 overflow-hidden">
+      <div class="p-6 space-y-1 border-b border-outline-variant/10">
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-3xl text-tertiary" style="font-variation-settings: 'FILL' 1;">info</span>
+          <h2 class="text-lg font-extrabold text-on-surface tracking-tight">Disclaimer</h2>
+        </div>
+      </div>
+      <div class="p-6 space-y-4 text-sm text-on-surface-variant leading-relaxed">
+        <p>
+          <strong class="text-on-surface">PQlyMarket</strong> is a community-driven project built solely to
+          <strong class="text-primary">connect and encourage the QRL community to engage with one another</strong>
+          on the QRL 2.0 Zond platform.
+        </p>
+        <p>
+          This project <strong class="text-error">does not sell any tokens</strong> and
+          <strong class="text-error">does not manipulate Oracle outcomes</strong>.
+          All market resolutions are transparent and verifiable on-chain.
+        </p>
+        <p>
+          Please note that this is an experimental project on testnet.
+          <strong class="text-on-surface">Things may change in the future</strong> if the project gains more
+          traction and migrates to mainnet.
+        </p>
+        <p class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-base text-primary">forum</span>
+          For questions or feedback, reach out on Discord:
+          <strong class="text-primary">@redzero38</strong>
+        </p>
+      </div>
+      <div class="p-5 border-t border-outline-variant/10 flex items-center justify-between gap-3">
+        <label class="flex items-center gap-2 cursor-pointer select-none group">
+          <input type="checkbox" id="disclaimerDontShow" class="w-4 h-4 rounded border-outline-variant accent-primary cursor-pointer" />
+          <span class="text-xs text-on-surface-variant group-hover:text-on-surface transition-colors">Don't show again</span>
+        </label>
+        <button id="disclaimerAcceptBtn" class="px-6 py-2.5 text-sm font-bold rounded-lg bg-primary text-on-primary hover:bg-primary/90 active:scale-[0.97] transition-all shadow-md">
+          I Understand
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Client config -->
+  <script>
+    window.__PQLY_CONFIG__ = {
+      rpcUrl: "<%= rpcUrl %>",
+      chainId: "<%= chainId %>",
+      contracts: <%- JSON.stringify(contracts) %>
+    };
+  </script>
+
+  <!-- Disclaimer logic -->
+  <script>
+    (function () {
+      var STORAGE_KEY = "pqly_disclaimer_dismissed";
+      var SESSION_KEY = "pqly_disclaimer_session";
+      var overlay = document.getElementById("disclaimerOverlay");
+      if (!overlay) return;
+
+      try {
+        if (localStorage.getItem(STORAGE_KEY) === "1") return;
+        if (sessionStorage.getItem(SESSION_KEY) === "1") return;
+      } catch (_e) {}
+
+      overlay.classList.remove("hidden");
+      overlay.classList.add("flex");
+
+      document.getElementById("disclaimerAcceptBtn").addEventListener("click", function () {
+        var dontShow = document.getElementById("disclaimerDontShow");
+        try {
+          if (dontShow && dontShow.checked) {
+            localStorage.setItem(STORAGE_KEY, "1");
+          } else {
+            sessionStorage.setItem(SESSION_KEY, "1");
+          }
+        } catch (_e) {}
+
+        overlay.classList.add("hidden");
+        overlay.classList.remove("flex");
+      });
+    })();
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.umd.min.js"></script>
+  <script src="/js/wallet.js?v=11"></script>
+  <script src="/js/charts.js?v=2"></script>
+  <script src="/js/app.js?v=8"></script>
+</body>
+</html>

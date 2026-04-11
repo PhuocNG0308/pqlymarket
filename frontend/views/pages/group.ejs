@@ -1,0 +1,154 @@
+<!-- Group Detail Page (Polymarket-style multi-outcome market) -->
+<section class="max-w-4xl mx-auto">
+  <div class="mb-6">
+    <a href="/?category=<%= group.category %>" class="text-xs text-on-surface-variant hover:text-primary transition-colors uppercase tracking-widest">
+      &larr; Back to <%= group.category %> Markets
+    </a>
+  </div>
+
+  <!-- Group Header -->
+  <div class="bg-surface-container-low p-8 border-l-4 border-primary mb-6">
+    <div class="flex items-center gap-3 mb-4">
+      <span class="material-symbols-outlined text-primary text-3xl"><%= group.icon %></span>
+      <span class="bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-bold tracking-widest uppercase"><%= group.category %></span>
+      <span class="text-on-surface-variant text-[10px] font-medium uppercase tracking-wider">Ends: <%= group.endDate %></span>
+    </div>
+
+    <h1 class="text-3xl md:text-4xl font-extrabold text-on-surface tracking-tight leading-tight mb-6">
+      <%= group.title %>
+    </h1>
+
+    <div class="grid grid-cols-3 gap-6">
+      <div>
+        <p class="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1">Total Volume</p>
+        <p class="text-lg font-bold text-on-surface"><%= group.totalVolume %></p>
+      </div>
+      <div>
+        <p class="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1">Outcomes</p>
+        <p class="text-lg font-bold text-on-surface"><%= group.outcomes.length %></p>
+      </div>
+      <div>
+        <p class="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1">Traders</p>
+        <p class="text-lg font-bold text-on-surface"><%= group.totalTraders %></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Outcome Rows (Polymarket-style) -->
+  <div class="space-y-2" id="groupOutcomes">
+    <!-- Column Headers -->
+    <div class="flex items-center px-4 py-2">
+      <span class="flex-1 text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">Outcome</span>
+      <span class="w-16 text-center text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">Chance</span>
+      <span class="w-48 text-center text-[10px] text-on-surface-variant uppercase tracking-widest font-bold ml-4">Trade</span>
+    </div>
+
+    <% group.outcomes.forEach(function(outcome, idx) { %>
+      <div class="bg-surface-container-low hover:bg-surface-container-high transition-all" data-outcome-idx="<%= idx %>">
+        <!-- Outcome Row -->
+        <div class="flex items-center px-4 py-4 cursor-pointer outcome-row" data-market-id="<%= outcome.marketId %>">
+          <div class="flex-1 flex items-center gap-3">
+            <span class="text-sm font-bold text-on-surface"><%= outcome.label %></span>
+            <% if (outcome.resolved) { %>
+              <span class="bg-error/10 text-error px-2 py-0.5 text-[9px] font-bold tracking-widest uppercase">Resolved</span>
+            <% } %>
+          </div>
+          <div class="w-16 text-center">
+            <span class="text-lg font-extrabold text-primary"><%= outcome.yesPrice %>%</span>
+          </div>
+          <div class="flex items-center gap-2 w-48 justify-center ml-4">
+            <% if (!outcome.resolved) { %>
+              <button class="group-buy-yes bg-primary/10 hover:bg-primary text-primary hover:text-on-primary text-xs font-bold px-4 py-2 transition-all active:scale-95"
+                      data-market-id="<%= outcome.marketId %>" data-label="<%= outcome.label %>">
+                Buy Yes <%= outcome.yesPrice %>&cent;
+              </button>
+              <button class="group-buy-no bg-surface-container-highest hover:bg-error/80 text-on-surface-variant hover:text-on-error text-xs font-bold px-4 py-2 transition-all active:scale-95"
+                      data-market-id="<%= outcome.marketId %>" data-label="<%= outcome.label %>">
+                Buy No <%= outcome.noPrice %>&cent;
+              </button>
+            <% } else { %>
+              <button class="group-claim bg-primary/10 text-primary text-xs font-bold px-4 py-2 hover:bg-primary hover:text-on-primary transition-all active:scale-95"
+                      data-market-id="<%= outcome.marketId %>">
+                Claim
+              </button>
+            <% } %>
+          </div>
+        </div>
+
+        <!-- Expanded Trade Panel (hidden by default) -->
+        <div class="hidden outcome-panel bg-surface-container p-6 mx-4 mb-4" id="outcomePanel-<%= outcome.marketId %>">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Buy Section -->
+            <div>
+              <h4 class="text-xs font-bold text-on-surface uppercase tracking-widest mb-3">Buy Shares — <%= outcome.label %></h4>
+              <div class="flex gap-2 mb-3">
+                <button class="outcome-side-btn active bg-primary text-on-primary text-xs font-bold px-4 py-2" data-side="yes" data-market-id="<%= outcome.marketId %>">YES</button>
+                <button class="outcome-side-btn bg-surface-container-highest text-on-surface-variant text-xs font-bold px-4 py-2" data-side="no" data-market-id="<%= outcome.marketId %>">NO</button>
+              </div>
+              <input type="number" placeholder="Amount (QRL)" min="0.001" step="0.001"
+                     class="outcome-buy-amount w-full bg-surface-container-highest text-on-surface text-sm px-4 py-3 mb-3 border-none focus:outline-none focus:ring-1 focus:ring-primary/20 placeholder:text-neutral-600"
+                     data-market-id="<%= outcome.marketId %>" />
+              <button class="outcome-buy-btn w-full bg-primary text-on-primary font-bold py-3 hover:bg-primary-container active:scale-95 transition-all"
+                      data-market-id="<%= outcome.marketId %>">
+                Buy Shares
+              </button>
+            </div>
+
+            <!-- Sell / Holdings Section -->
+            <div>
+              <h4 class="text-xs font-bold text-on-surface uppercase tracking-widest mb-3">Your Position</h4>
+              <div class="space-y-2 mb-3">
+                <div class="flex justify-between text-xs">
+                  <span class="text-on-surface-variant">YES shares</span>
+                  <span class="font-mono text-primary outcome-yes-shares" data-market-id="<%= outcome.marketId %>">—</span>
+                </div>
+                <div class="flex justify-between text-xs">
+                  <span class="text-on-surface-variant">NO shares</span>
+                  <span class="font-mono text-primary outcome-no-shares" data-market-id="<%= outcome.marketId %>">—</span>
+                </div>
+              </div>
+              <input type="number" placeholder="Shares to sell" min="0.001" step="0.001"
+                     class="outcome-sell-amount w-full bg-surface-container-highest text-on-surface text-sm px-4 py-3 mb-3 border-none focus:outline-none focus:ring-1 focus:ring-error/20 placeholder:text-neutral-600"
+                     data-market-id="<%= outcome.marketId %>" />
+              <button class="outcome-sell-btn w-full bg-error/80 text-on-error font-bold py-3 hover:bg-error active:scale-95 transition-all"
+                      data-market-id="<%= outcome.marketId %>">
+                Sell Shares
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    <% }); %>
+  </div>
+
+  <!-- Group Info -->
+  <div class="bg-surface-container p-6 mt-6">
+    <h3 class="text-xs font-bold text-on-surface uppercase tracking-widest mb-3">How Multi-Outcome Markets Work</h3>
+    <ul class="space-y-2 text-xs text-on-surface-variant">
+      <li class="flex items-start gap-2">
+        <span class="text-primary font-bold">1.</span>
+        Each outcome is an independent YES/NO market with its own AMM pricing.
+      </li>
+      <li class="flex items-start gap-2">
+        <span class="text-primary font-bold">2.</span>
+        Buy YES on an outcome you believe will happen, or NO if you think it won't.
+      </li>
+      <li class="flex items-start gap-2">
+        <span class="text-primary font-bold">3.</span>
+        Percentages reflect the market's implied probability for each outcome.
+      </li>
+      <li class="flex items-start gap-2">
+        <span class="text-primary font-bold">4.</span>
+        After resolution, winners claim their proportional share of the pool.
+      </li>
+    </ul>
+  </div>
+</section>
+
+<!-- Group config for client-side JS -->
+<script id="group-data" type="application/json">
+  <%- JSON.stringify({ groupId: group.groupId, outcomes: group.outcomes }) %>
+</script>
+<script>
+  window.__GROUP_DATA__ = JSON.parse(document.getElementById('group-data').textContent);
+</script>

@@ -1,0 +1,143 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ========================================
+   PQlymarket - Custom Styles
+   Design System: The Kinetic Engine
+   ======================================== */
+
+/* Base reset */
+@layer base {
+  body {
+    font-family: 'Manrope', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background-color: #ffa729;
+    color: #4d2e00;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #0e0e0e;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #262626;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #494847;
+  }
+}
+
+/* No-scrollbar utility */
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Material Symbols config */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* Primary button gradient (machine-polished finish) */
+@layer components {
+  .btn-gradient {
+    background: linear-gradient(135deg, #ffa729, #e18e03);
+  }
+
+  .btn-gradient:hover {
+    background: linear-gradient(135deg, #e18e03, #ffa729);
+  }
+
+  /* Glass effect for floating elements */
+  .glass {
+    background: rgba(44, 44, 44, 0.8);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+  }
+
+  /* Ghost border (felt, not seen) */
+  .ghost-border {
+    border: 1px solid rgba(73, 72, 71, 0.15);
+  }
+
+  /* Ambient shadow for floating elements */
+  .ambient-shadow {
+    box-shadow: 0 0 48px rgba(0, 0, 0, 0.08);
+  }
+
+  /* Card recessed look */
+  .card-recessed {
+    background-color: #000000;
+  }
+
+  /* Card lifted look */
+  .card-lifted {
+    background-color: #201f1f;
+  }
+
+  /* Toast notification styles */
+  .toast {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    opacity: 0;
+    transition: all 0.3s ease;
+    z-index: 9999;
+  }
+
+  .toast.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Chart.js canvas container */
+#volumeChart {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Responsive typography */
+@media (max-width: 768px) {
+  .text-4xl {
+    font-size: 1.875rem;
+    line-height: 2.25rem;
+  }
+
+  .text-5xl {
+    font-size: 2.25rem;
+    line-height: 2.5rem;
+  }
+}
+
+/* Skeleton loading animation */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #131313 25%, #1a1919 50%, #131313 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}

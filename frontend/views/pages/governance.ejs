@@ -1,0 +1,161 @@
+<!-- Governance Page -->
+<section class="max-w-4xl mx-auto">
+  <div class="mb-8">
+    <h1 class="text-3xl font-extrabold text-on-surface tracking-tight">Governance Oracle</h1>
+    <p class="text-on-surface-variant text-sm mt-2">Propose, dispute, and vote on market outcomes using PQL tokens. Polymarket-style decentralized resolution.</p>
+  </div>
+
+  <!-- PQL Balance Bar -->
+  <div id="govWalletBar" class="hidden bg-surface-container-low p-4 mb-6 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <span class="material-symbols-outlined text-primary">toll</span>
+      <div>
+        <p class="text-xs text-on-surface-variant uppercase tracking-widest font-bold">Your PQL Balance</p>
+        <p class="text-xl font-extrabold text-on-surface" id="govPqlBalance">0</p>
+      </div>
+    </div>
+    <div class="text-right">
+      <p class="text-xs text-on-surface-variant">Connected</p>
+      <p class="text-xs text-primary font-mono" id="govWalletAddr">---</p>
+    </div>
+  </div>
+
+  <!-- Not Connected -->
+  <div id="govNoWallet" class="bg-surface-container-low p-8 text-center">
+    <span class="material-symbols-outlined text-5xl text-on-surface-variant mb-4">how_to_vote</span>
+    <h2 class="text-xl font-bold text-on-surface mb-2">Connect Wallet to Participate</h2>
+    <p class="text-on-surface-variant text-sm mb-6">You need PQL tokens and a connected wallet to propose, dispute, or vote on outcomes.</p>
+    <button id="govConnectBtn" class="bg-primary text-on-primary font-bold px-8 py-3 hover:bg-primary-container active:scale-95 transition-all">
+      Connect Wallet
+    </button>
+  </div>
+  <script>try{if(localStorage.getItem("pqly_wallet_rdns")){document.getElementById("govNoWallet").classList.add("hidden")}}catch(e){}</script>
+
+  <!-- Markets List for Governance -->
+  <div id="govMarketsList" class="hidden space-y-4">
+    <% if (typeof markets !== 'undefined' && markets.length > 0) { %>
+      <% markets.forEach(function(market, idx) { %>
+      <div class="bg-surface-container-low border-l-4 border-outline-variant/20 hover:border-primary/50 transition-all" data-market-id="<%= market.id %>">
+        <!-- Header -->
+        <div class="p-4 cursor-pointer flex items-center justify-between gov-market-header" data-toggle="<%= idx %>">
+          <div class="flex-1">
+            <p class="font-bold text-on-surface text-sm"><%= market.question %></p>
+            <div class="flex items-center gap-4 mt-1">
+              <span class="text-[10px] text-on-surface-variant">Market #<%= market.id %></span>
+              <span class="text-[10px] text-on-surface-variant">Ends: <%= new Date(Number(market.endTime) * 1000).toLocaleDateString() %></span>
+              <% if (market.resolved) { %>
+                <span class="text-[10px] px-2 py-0.5 bg-tertiary/20 text-tertiary font-bold">RESOLVED</span>
+              <% } %>
+            </div>
+          </div>
+          <span class="material-symbols-outlined text-on-surface-variant gov-chevron" id="chevron-<%= idx %>">expand_more</span>
+        </div>
+
+        <!-- Expandable governance panel -->
+        <div class="hidden px-4 pb-4 gov-panel" id="govPanel-<%= idx %>">
+          <!-- Proposal Status (loaded via JS) -->
+          <div class="bg-surface-container p-4 mb-3" id="govStatus-<%= market.id %>">
+            <p class="text-xs text-on-surface-variant">Loading governance status...</p>
+          </div>
+
+          <!-- Actions -->
+          <div class="space-y-3" id="govActions-<%= market.id %>">
+            <!-- Propose Outcome -->
+            <div class="bg-surface-container-highest p-3" id="govProposeSection-<%= market.id %>">
+              <p class="text-xs font-bold text-on-surface uppercase tracking-widest mb-2">Propose Outcome</p>
+              <div class="flex gap-2">
+                <button class="flex-1 bg-tertiary/20 text-tertiary text-xs font-bold py-2 hover:bg-tertiary/30 transition-all gov-propose-btn" data-market="<%= market.id %>" data-outcome="1">
+                  Propose YES
+                </button>
+                <button class="flex-1 bg-error/20 text-error text-xs font-bold py-2 hover:bg-error/30 transition-all gov-propose-btn" data-market="<%= market.id %>" data-outcome="2">
+                  Propose NO
+                </button>
+              </div>
+              <p class="text-[10px] text-on-surface-variant mt-1">Requires staking 100 PQL</p>
+            </div>
+
+            <!-- Dispute -->
+            <div class="bg-surface-container-highest p-3 hidden" id="govDisputeSection-<%= market.id %>">
+              <p class="text-xs font-bold text-on-surface uppercase tracking-widest mb-2">Dispute Proposal</p>
+              <div class="flex gap-2">
+                <button class="flex-1 bg-tertiary/20 text-tertiary text-xs font-bold py-2 hover:bg-tertiary/30 transition-all gov-dispute-btn" data-market="<%= market.id %>" data-outcome="1">
+                  Dispute → YES
+                </button>
+                <button class="flex-1 bg-error/20 text-error text-xs font-bold py-2 hover:bg-error/30 transition-all gov-dispute-btn" data-market="<%= market.id %>" data-outcome="2">
+                  Dispute → NO
+                </button>
+              </div>
+              <p class="text-[10px] text-on-surface-variant mt-1">Requires staking 100 PQL. Triggers community vote.</p>
+            </div>
+
+            <!-- Vote -->
+            <div class="bg-surface-container-highest p-3 hidden" id="govVoteSection-<%= market.id %>">
+              <p class="text-xs font-bold text-on-surface uppercase tracking-widest mb-2">Cast Your Vote</p>
+              <div class="mb-2">
+                <label class="text-[10px] text-on-surface-variant">PQL amount to stake:</label>
+                <input type="number" class="w-full bg-surface-container text-on-surface text-sm px-3 py-1.5 mt-1 focus:outline-none focus:ring-1 focus:ring-primary/30 gov-vote-amount" data-market="<%= market.id %>" placeholder="Amount of PQL" min="1" />
+              </div>
+              <div class="flex gap-2">
+                <button class="flex-1 bg-tertiary/20 text-tertiary text-xs font-bold py-2 hover:bg-tertiary/30 transition-all gov-vote-btn" data-market="<%= market.id %>" data-outcome="1">
+                  Vote YES
+                </button>
+                <button class="flex-1 bg-error/20 text-error text-xs font-bold py-2 hover:bg-error/30 transition-all gov-vote-btn" data-market="<%= market.id %>" data-outcome="2">
+                  Vote NO
+                </button>
+              </div>
+              <p class="text-[10px] text-on-surface-variant mt-1">Votes are weighted by PQL staked. Voting period: 48h.</p>
+            </div>
+
+            <!-- Finalize -->
+            <div class="bg-surface-container-highest p-3 hidden" id="govFinalizeSection-<%= market.id %>">
+              <p class="text-xs font-bold text-on-surface uppercase tracking-widest mb-2">Finalize</p>
+              <button class="w-full bg-primary text-on-primary text-xs font-bold py-2 hover:bg-primary-container transition-all gov-finalize-btn" data-market="<%= market.id %>">
+                Finalize Outcome
+              </button>
+              <p class="text-[10px] text-on-surface-variant mt-1">Complete the governance process and resolve the market.</p>
+            </div>
+
+            <!-- Claim voter stake -->
+            <div class="bg-surface-container-highest p-3 hidden" id="govClaimSection-<%= market.id %>">
+              <p class="text-xs font-bold text-on-surface uppercase tracking-widest mb-2">Claim Voter Reward</p>
+              <button class="w-full bg-tertiary text-on-tertiary text-xs font-bold py-2 hover:bg-tertiary-container transition-all gov-claim-btn" data-market="<%= market.id %>">
+                Claim PQL Stake
+              </button>
+              <p class="text-[10px] text-on-surface-variant mt-1">Claim your PQL back (+ loser's stake share if you voted correctly).</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <% }); %>
+    <% } else { %>
+      <div class="bg-surface-container-low p-8 text-center">
+        <span class="material-symbols-outlined text-5xl text-on-surface-variant mb-4">ballot</span>
+        <h2 class="text-xl font-bold text-on-surface mb-2">No Markets Yet</h2>
+        <p class="text-on-surface-variant text-sm">Markets will appear here once they are created.</p>
+      </div>
+    <% } %>
+  </div>
+
+  <!-- How Governance Works -->
+  <div class="bg-surface-container p-6 mt-6">
+    <h3 class="text-xs font-bold text-on-surface uppercase tracking-widest mb-3">How Governance Oracle Works</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 text-xs text-on-surface-variant">
+      <div>
+        <span class="text-primary font-bold text-sm">1. Propose</span>
+        <p class="mt-1">Anyone with ≥100 PQL can propose a market outcome (YES or NO). Stake is locked.</p>
+      </div>
+      <div>
+        <span class="text-primary font-bold text-sm">2. Dispute</span>
+        <p class="mt-1">Within 24h, anyone can dispute by staking 100 PQL for the opposite outcome.</p>
+      </div>
+      <div>
+        <span class="text-primary font-bold text-sm">3. Vote</span>
+        <p class="mt-1">If disputed, PQL holders vote for 48h. Votes weighted by PQL staked.</p>
+      </div>
+      <div>
+        <span class="text-primary font-bold text-sm">4. Finalize</span>
+        <p class="mt-1">After periods end, anyone can finalize. Winners split losers' PQL stakes.</p>
+      </div>
+    </div>
+  </div>
+</section>

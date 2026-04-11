@@ -1,0 +1,142 @@
+<!-- Create Market Page -->
+<section class="max-w-2xl mx-auto">
+  <div class="mb-8">
+    <h1 class="text-3xl font-extrabold text-on-surface tracking-tight">Create New Market</h1>
+    <p class="text-on-surface-variant text-sm mt-2">Only authorized market creators can create new prediction markets.</p>
+  </div>
+
+  <!-- Not Connected State (hidden initially if reconnecting) -->
+  <div id="createNoWallet" class="bg-surface-container-low p-8 border-l-4 border-outline-variant/20 text-center">
+    <span class="material-symbols-outlined text-5xl text-on-surface-variant mb-4">account_balance_wallet</span>
+    <h2 class="text-xl font-bold text-on-surface mb-2">Connect Your Wallet</h2>
+    <p class="text-on-surface-variant text-sm mb-6">Connect a wallet with market creation privileges to continue.</p>
+    <button id="createConnectBtn" class="bg-primary text-on-primary font-bold px-8 py-3 hover:bg-primary-container active:scale-95 transition-all">
+      Connect Wallet
+    </button>
+  </div>
+  <script>try{if(localStorage.getItem("pqly_wallet_rdns")){document.getElementById("createNoWallet").classList.add("hidden")}}catch(e){}</script>
+
+  <!-- Not Authorized State -->
+  <div id="createNotAuthorized" class="hidden bg-surface-container-low p-8 border-l-4 border-error text-center">
+    <span class="material-symbols-outlined text-5xl text-error mb-4">block</span>
+    <h2 class="text-xl font-bold text-on-surface mb-2">Not Authorized</h2>
+    <p class="text-on-surface-variant text-sm mb-4">Your connected wallet does not have market creation privileges.</p>
+    <button id="requestAuthBtn" class="bg-primary text-on-primary font-bold px-6 py-2 hover:bg-primary-container active:scale-95 transition-all">
+      Request Authorization
+    </button>
+    <p id="authStatus" class="text-on-surface-variant text-xs mt-4 hidden"></p>
+  </div>
+
+  <!-- Create Market Form -->
+  <div id="createForm" class="hidden">
+    <div class="bg-surface-container-low p-8 border-l-4 border-primary">
+      <div class="flex items-center gap-2 mb-6">
+        <span class="material-symbols-outlined text-primary">verified</span>
+        <span class="text-xs text-primary font-bold uppercase tracking-widest">Authorized Creator</span>
+      </div>
+
+      <!-- Mode Toggle -->
+      <div class="flex gap-2 mb-8">
+        <button id="modeStandalone" class="text-xs font-bold px-4 py-2 bg-primary text-on-primary transition-all active:scale-95" onclick="setCreateMode('standalone')">
+          Single Market
+        </button>
+        <button id="modeGroup" class="text-xs font-bold px-4 py-2 bg-surface-container-highest text-on-surface-variant transition-all active:scale-95" onclick="setCreateMode('group')">
+          Multi-Outcome Group
+        </button>
+      </div>
+
+      <!-- Standalone Form -->
+      <div id="standaloneFields" class="space-y-6">
+        <!-- Question -->
+        <div>
+          <label class="block text-xs text-on-surface-variant uppercase tracking-widest mb-2 font-bold">Market Question</label>
+          <input type="text" id="marketQuestion" placeholder="e.g., Will BTC reach $200k by December 2026?"
+                 class="w-full bg-surface-container-highest text-on-surface px-4 py-3 text-sm border-none focus:outline-none focus:ring-1 focus:ring-primary/30 placeholder:text-neutral-600" />
+        </div>
+
+        <!-- End Date -->
+        <div>
+          <label class="block text-xs text-on-surface-variant uppercase tracking-widest mb-2 font-bold">Resolution Date</label>
+          <input type="datetime-local" id="marketEndDate"
+                 class="w-full bg-surface-container-highest text-on-surface px-4 py-3 text-sm border-none focus:outline-none focus:ring-1 focus:ring-primary/30" />
+          <p class="text-[10px] text-on-surface-variant mt-1">The market will be open for trading until this date.</p>
+        </div>
+
+        <!-- Category hint -->
+        <div>
+          <label class="block text-xs text-on-surface-variant uppercase tracking-widest mb-2 font-bold">Category (auto-detected)</label>
+          <p class="text-sm text-on-surface" id="marketCategory">Type your question above — category will be detected automatically</p>
+        </div>
+
+        <!-- Submit -->
+        <button id="submitCreateMarket" class="w-full bg-primary text-on-primary font-bold py-4 text-lg hover:bg-primary-container active:scale-95 transition-all">
+          <span class="material-symbols-outlined align-middle mr-2">add_circle</span>
+          Create Market
+        </button>
+      </div>
+
+      <!-- Group Form -->
+      <div id="groupFields" class="hidden space-y-6">
+        <!-- Group title -->
+        <div>
+          <label class="block text-xs text-on-surface-variant uppercase tracking-widest mb-2 font-bold">Group Title</label>
+          <input type="text" id="groupTitle" placeholder="e.g., What price will QRL hit by end of Q2 2026?"
+                 class="w-full bg-surface-container-highest text-on-surface px-4 py-3 text-sm border-none focus:outline-none focus:ring-1 focus:ring-primary/30 placeholder:text-neutral-600" />
+        </div>
+
+        <!-- End Date -->
+        <div>
+          <label class="block text-xs text-on-surface-variant uppercase tracking-widest mb-2 font-bold">Resolution Date</label>
+          <input type="datetime-local" id="groupEndDate"
+                 class="w-full bg-surface-container-highest text-on-surface px-4 py-3 text-sm border-none focus:outline-none focus:ring-1 focus:ring-primary/30" />
+        </div>
+
+        <!-- Outcome Labels -->
+        <div>
+          <label class="block text-xs text-on-surface-variant uppercase tracking-widest mb-2 font-bold">Outcome Labels</label>
+          <div id="outcomeLabelsContainer" class="space-y-2">
+            <div class="flex gap-2">
+              <input type="text" placeholder="Outcome 1 (e.g., Above $50)" class="outcome-label-input flex-1 bg-surface-container-highest text-on-surface px-4 py-3 text-sm border-none focus:outline-none focus:ring-1 focus:ring-primary/30 placeholder:text-neutral-600" />
+            </div>
+            <div class="flex gap-2">
+              <input type="text" placeholder="Outcome 2 (e.g., Above $30)" class="outcome-label-input flex-1 bg-surface-container-highest text-on-surface px-4 py-3 text-sm border-none focus:outline-none focus:ring-1 focus:ring-primary/30 placeholder:text-neutral-600" />
+            </div>
+          </div>
+          <button id="addOutcomeBtn" class="mt-2 text-xs text-primary font-bold hover:underline flex items-center gap-1">
+            <span class="material-symbols-outlined text-sm">add</span> Add Outcome
+          </button>
+          <p class="text-[10px] text-on-surface-variant mt-1">Each outcome becomes its own YES/NO market within the group. Min 2 outcomes.</p>
+        </div>
+
+        <!-- Submit group -->
+        <button id="submitCreateGroup" class="w-full bg-primary text-on-primary font-bold py-4 text-lg hover:bg-primary-container active:scale-95 transition-all">
+          <span class="material-symbols-outlined align-middle mr-2">add_circle</span>
+          Create Market Group
+        </button>
+      </div>
+    </div>
+
+    <!-- Info box -->
+    <div class="bg-surface-container p-6 mt-6">
+      <h3 class="text-xs font-bold text-on-surface uppercase tracking-widest mb-3">How It Works</h3>
+      <ul class="space-y-2 text-xs text-on-surface-variant">
+        <li class="flex items-start gap-2">
+          <span class="text-primary font-bold">1.</span>
+          Create a market with a YES/NO question and resolution date.
+        </li>
+        <li class="flex items-start gap-2">
+          <span class="text-primary font-bold">2.</span>
+          The AMM initializes with 50/50 odds. Traders buy/sell shares to shift prices.
+        </li>
+        <li class="flex items-start gap-2">
+          <span class="text-primary font-bold">3.</span>
+          After the resolution date, QOL token holders can propose and vote on the outcome.
+        </li>
+        <li class="flex items-start gap-2">
+          <span class="text-primary font-bold">4.</span>
+          Winners claim their share of the prize pool proportional to their holdings.
+        </li>
+      </ul>
+    </div>
+  </div>
+</section>

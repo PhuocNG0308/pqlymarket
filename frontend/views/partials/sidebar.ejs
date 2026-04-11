@@ -1,0 +1,25 @@
+<!-- Left Sidebar - Crypto Categories (BTC + QRL only) -->
+<aside class="hidden md:flex flex-col w-64 z-40 border-r border-neutral-800 bg-neutral-900 overflow-y-auto shrink-0">
+  <div class="px-6 py-4">
+    <h3 class="text-on-surface-variant text-[10px] uppercase tracking-[0.2em] font-bold">Crypto Categories</h3>
+    <p class="text-neutral-500 text-[10px]">Market Segments</p>
+  </div>
+  <nav class="flex-1 px-3 space-y-1 mt-2">
+    <% categories.forEach(function(cat) { %>
+      <a href="/?category=<%= cat.id %>"
+         class="flex items-center gap-3 px-3 py-3 text-xs font-semibold transition-colors
+           <%= activeCategory === cat.id
+             ? 'bg-neutral-800 text-primary border-r-2 border-primary'
+             : 'text-neutral-500 hover:bg-neutral-800/30 hover:text-neutral-200' %>">
+        <span class="material-symbols-outlined text-lg"><%= cat.icon %></span>
+        <%= cat.name %>
+      </a>
+    <% }); %>
+  </nav>
+  <div class="p-6">
+    <div class="bg-surface-container-lowest p-4 rounded-lg border border-outline-variant/10">
+      <p class="text-[10px] text-on-surface-variant mb-2">GAS PRICE</p>
+      <p class="text-primary font-bold text-sm" id="gasPrice">18 Gwei</p>
+    </div>
+  </div>
+</aside>

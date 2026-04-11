@@ -1,0 +1,65 @@
+<!-- Portfolio Page -->
+<section class="max-w-5xl mx-auto">
+  <div class="mb-8">
+    <h1 class="text-3xl font-extrabold text-on-surface tracking-tight uppercase">Portfolio</h1>
+    <div class="h-1 w-12 bg-primary mt-2"></div>
+  </div>
+
+  <!-- Wallet Required (hidden initially if reconnecting) -->
+  <div id="portfolioNoWallet" class="bg-surface-container-low p-12 text-center">
+    <span class="material-symbols-outlined text-on-surface-variant text-6xl mb-4">account_balance_wallet</span>
+    <h2 class="text-xl font-bold text-on-surface mb-2">Connect Your Wallet</h2>
+    <p class="text-sm text-on-surface-variant mb-6">Connect your wallet to view your positions and P&amp;L</p>
+    <button id="portfolioConnectBtn" class="bg-primary text-on-primary px-8 py-3 font-bold hover:bg-primary-container active:scale-95 transition-all rounded">
+      Connect Wallet
+    </button>
+  </div>
+  <script>try{if(localStorage.getItem("pqly_wallet_rdns")){document.getElementById("portfolioNoWallet").classList.add("hidden")}}catch(e){}</script>
+
+  <!-- Portfolio Content (hidden until wallet connected) -->
+  <div id="portfolioContent" class="hidden space-y-8">
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div class="bg-surface-container-low p-6 border-l-2 border-primary">
+        <p class="text-[10px] text-on-surface-variant uppercase tracking-widest mb-2">QRL Balance</p>
+        <p class="text-2xl font-black text-on-surface" id="portfolioQrlBalance">0.00</p>
+      </div>
+      <div class="bg-surface-container-low p-6">
+        <p class="text-[10px] text-on-surface-variant uppercase tracking-widest mb-2">Position Value</p>
+        <p class="text-2xl font-black text-on-surface" id="portfolioValue">0.00 QRL</p>
+      </div>
+      <div class="bg-surface-container-low p-6">
+        <p class="text-[10px] text-on-surface-variant uppercase tracking-widest mb-2">Unrealized P&amp;L</p>
+        <p class="text-2xl font-black text-primary" id="portfolioPnL">0.00 QRL</p>
+      </div>
+      <div class="bg-surface-container-low p-6">
+        <p class="text-[10px] text-on-surface-variant uppercase tracking-widest mb-2">Active Positions</p>
+        <p class="text-2xl font-black text-on-surface" id="portfolioPositions">0</p>
+      </div>
+    </div>
+
+    <!-- Positions Table -->
+    <div class="bg-surface-container-low p-6">
+      <h3 class="text-sm font-bold text-on-surface mb-6 uppercase tracking-widest">Your Positions</h3>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-[10px] text-on-surface-variant uppercase tracking-widest">
+              <th class="text-left pb-4">Market</th>
+              <th class="text-left pb-4">Side</th>
+              <th class="text-right pb-4">Shares</th>
+              <th class="text-right pb-4">Avg. Price</th>
+              <th class="text-right pb-4">Current</th>
+              <th class="text-right pb-4">P&amp;L</th>
+            </tr>
+          </thead>
+          <tbody id="positionsBody" class="text-on-surface">
+            <tr>
+              <td colspan="6" class="py-8 text-center text-on-surface-variant text-xs">No positions yet</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>

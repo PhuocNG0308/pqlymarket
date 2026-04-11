@@ -1,0 +1,322 @@
+<!-- Profile Page -->
+<section class="max-w-5xl mx-auto">
+  <!-- Header -->
+  <div class="mb-8 flex items-center gap-4">
+    <div>
+      <p class="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1">Trader Profile</p>
+      <h1 class="text-xl font-extrabold text-on-surface tracking-tight font-mono flex items-center gap-2" id="profileAddress">
+        <%= profileAddress.substring(0, 10) %>...<%= profileAddress.slice(-6) %>
+        <button onclick="navigator.clipboard.writeText('<%= profileAddress %>')" class="text-on-surface-variant hover:text-primary transition-colors" title="Copy address">
+          <span class="material-symbols-outlined text-sm">content_copy</span>
+        </button>
+      </h1>
+      <div class="h-1 w-12 bg-primary mt-2"></div>
+    </div>
+  </div>
+
+  <!-- Stats Cards -->
+  <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8" id="profileStats">
+    <div class="bg-surface-container-low p-5">
+      <p class="text-[10px] text-on-surface-variant uppercase tracking-widest mb-2">Total Volume</p>
+      <p class="text-xl font-black text-on-surface" id="statVolume">—</p>
+    </div>
+    <div class="bg-surface-container-low p-5">
+      <p class="text-[10px] text-on-surface-variant uppercase tracking-widest mb-2">Profit</p>
+      <p class="text-xl font-black" id="statProfit">—</p>
+    </div>
+    <div class="bg-surface-container-low p-5">
+      <p class="text-[10px] text-on-surface-variant uppercase tracking-widest mb-2">Win Rate</p>
+      <p class="text-xl font-black text-on-surface" id="statWinRate">—</p>
+    </div>
+    <div class="bg-surface-container-low p-5">
+      <p class="text-[10px] text-on-surface-variant uppercase tracking-widest mb-2">Markets</p>
+      <p class="text-xl font-black text-on-surface" id="statMarkets">—</p>
+    </div>
+    <div class="bg-surface-container-low p-5">
+      <p class="text-[10px] text-on-surface-variant uppercase tracking-widest mb-2">Total Trades</p>
+      <p class="text-xl font-black text-on-surface" id="statTrades">—</p>
+    </div>
+  </div>
+
+  <!-- Portfolio Value Chart -->
+  <div class="bg-surface-container-low p-6 mb-8">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-sm font-bold text-on-surface uppercase tracking-widest">Portfolio Value Over Time</h3>
+      <div class="flex gap-1 bg-surface-container-highest p-1 rounded">
+        <button data-range="1W" class="chart-range-btn px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded text-on-surface-variant hover:text-on-surface transition-colors">1W</button>
+        <button data-range="1M" class="chart-range-btn px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded text-on-surface-variant hover:text-on-surface transition-colors">1M</button>
+        <button data-range="3M" class="chart-range-btn px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded text-on-surface-variant hover:text-on-surface transition-colors">3M</button>
+        <button data-range="ALL" class="chart-range-btn px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded bg-primary text-on-primary">All</button>
+      </div>
+    </div>
+    <div class="h-64" id="chartContainer">
+      <canvas id="portfolioChart"></canvas>
+    </div>
+    <p class="text-center text-on-surface-variant text-xs mt-2 hidden" id="chartNoData">No portfolio history available yet</p>
+  </div>
+
+  <!-- Current Positions -->
+  <div class="bg-surface-container-low p-6 mb-8">
+    <h3 class="text-sm font-bold text-on-surface mb-6 uppercase tracking-widest">Current Positions</h3>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-[10px] text-on-surface-variant uppercase tracking-widest">
+            <th class="text-left pb-4">Market</th>
+            <th class="text-left pb-4">Side</th>
+            <th class="text-right pb-4">Shares</th>
+            <th class="text-right pb-4">Price</th>
+            <th class="text-right pb-4">Value</th>
+          </tr>
+        </thead>
+        <tbody id="profilePositionsBody" class="text-on-surface">
+          <tr><td colspan="5" class="py-8 text-center text-on-surface-variant text-xs">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Betting History -->
+  <div class="bg-surface-container-low p-6">
+    <h3 class="text-sm font-bold text-on-surface mb-6 uppercase tracking-widest">Betting History</h3>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-[10px] text-on-surface-variant uppercase tracking-widest">
+            <th class="text-left pb-4">Type</th>
+            <th class="text-left pb-4">Market</th>
+            <th class="text-left pb-4">Side</th>
+            <th class="text-right pb-4">Amount</th>
+            <th class="text-right pb-4">Cost / Payout</th>
+            <th class="text-right pb-4">Time</th>
+          </tr>
+        </thead>
+        <tbody id="profileHistoryBody" class="text-on-surface">
+          <tr><td colspan="6" class="py-8 text-center text-on-surface-variant text-xs">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="flex justify-center mt-6 gap-2 hidden" id="historyPagination">
+      <button id="historyPrev" class="px-3 py-1 text-xs font-bold bg-surface-container-highest text-on-surface-variant hover:text-on-surface rounded transition-colors">← Prev</button>
+      <span id="historyPageInfo" class="px-3 py-1 text-xs text-on-surface-variant"></span>
+      <button id="historyNext" class="px-3 py-1 text-xs font-bold bg-surface-container-highest text-on-surface-variant hover:text-on-surface rounded transition-colors">Next →</button>
+    </div>
+  </div>
+</section>
+
+<script>
+(function() {
+  var address = "<%= profileAddress %>";
+  var allHistory = [];
+  var historyPage = 0;
+  var historyPerPage = 15;
+  var portfolioChart = null;
+  var allPortfolioHistory = [];
+
+  loadProfile();
+
+  // Chart range buttons
+  document.querySelectorAll(".chart-range-btn").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      document.querySelectorAll(".chart-range-btn").forEach(function(b) {
+        b.classList.remove("bg-primary", "text-on-primary");
+        b.classList.add("text-on-surface-variant");
+      });
+      btn.classList.add("bg-primary", "text-on-primary");
+      btn.classList.remove("text-on-surface-variant");
+      filterChart(btn.dataset.range);
+    });
+  });
+
+  async function loadProfile() {
+    try {
+      var resp = await fetch("/api/profile/" + address);
+      var json = await resp.json();
+
+      if (!json.success || !json.data) {
+        document.getElementById("statVolume").textContent = "0 QRL";
+        document.getElementById("statProfit").textContent = "0 QRL";
+        document.getElementById("statWinRate").textContent = "0%";
+        document.getElementById("statMarkets").textContent = "0";
+        document.getElementById("statTrades").textContent = "0";
+        return;
+      }
+
+      var d = json.data;
+
+      // Stats
+      document.getElementById("statVolume").textContent = d.stats.totalVolume + " QRL";
+      var profitEl = document.getElementById("statProfit");
+      profitEl.textContent = d.stats.profit + " QRL";
+      profitEl.classList.add(d.stats.profit.startsWith("-") ? "text-red-400" : "text-green-400");
+      document.getElementById("statWinRate").textContent = d.stats.wins + " wins";
+      document.getElementById("statMarkets").textContent = d.stats.marketsTraded;
+      document.getElementById("statTrades").textContent = d.stats.totalTrades;
+
+      // Portfolio chart
+      allPortfolioHistory = d.portfolioHistory || [];
+      renderChart(allPortfolioHistory);
+
+      // Current positions
+      renderPositions(d.currentPositions || []);
+
+      // Betting history
+      allHistory = d.trades || [];
+      renderHistory();
+    } catch (err) {
+      console.error("Failed to load profile:", err);
+    }
+  }
+
+  function renderChart(points) {
+    var canvas = document.getElementById("portfolioChart");
+    if (!canvas || typeof Chart === "undefined") return;
+
+    if (points.length === 0) {
+      canvas.style.display = "none";
+      document.getElementById("chartNoData").classList.remove("hidden");
+      return;
+    }
+    canvas.style.display = "";
+    document.getElementById("chartNoData").classList.add("hidden");
+
+    var labels = points.map(function(p) { return p.date; });
+    var values = points.map(function(p) { return parseFloat(p.value); });
+
+    if (portfolioChart) {
+      portfolioChart.data.labels = labels;
+      portfolioChart.data.datasets[0].data = values;
+      portfolioChart.update();
+      return;
+    }
+
+    portfolioChart = new Chart(canvas, {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [{
+          label: "Portfolio Value (QRL)",
+          data: values,
+          borderColor: "#C8E6C9",
+          backgroundColor: "rgba(200,230,201,0.1)",
+          fill: true,
+          tension: 0.3,
+          pointRadius: points.length > 30 ? 0 : 3,
+          pointHoverRadius: 5,
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: "#1e1e1e",
+            titleColor: "#e0e0e0",
+            bodyColor: "#e0e0e0",
+            callbacks: {
+              label: function(ctx) { return ctx.parsed.y.toFixed(4) + " QRL"; }
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: "#888", maxTicksLimit: 8, font: { size: 10 } },
+            grid: { color: "rgba(255,255,255,0.04)" }
+          },
+          y: {
+            ticks: { color: "#888", font: { size: 10 }, callback: function(v) { return v.toFixed(2); } },
+            grid: { color: "rgba(255,255,255,0.04)" }
+          }
+        }
+      }
+    });
+  }
+
+  function filterChart(range) {
+    if (!allPortfolioHistory.length) return;
+    var now = new Date();
+    var cutoff;
+    if (range === "1W") cutoff = new Date(now - 7 * 86400000);
+    else if (range === "1M") cutoff = new Date(now - 30 * 86400000);
+    else if (range === "3M") cutoff = new Date(now - 90 * 86400000);
+    else { renderChart(allPortfolioHistory); return; }
+
+    var filtered = allPortfolioHistory.filter(function(p) {
+      return new Date(p.date) >= cutoff;
+    });
+    renderChart(filtered.length ? filtered : allPortfolioHistory);
+  }
+
+  function renderPositions(positions) {
+    var tbody = document.getElementById("profilePositionsBody");
+    if (!positions.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-on-surface-variant text-xs">No open positions</td></tr>';
+      return;
+    }
+    var rows = "";
+    positions.forEach(function(p) {
+      var shares = parseFloat(p.shares) || 0;
+      var price = p.currentPrice / 100;
+      var value = (shares * price).toFixed(4);
+      var sideClass = p.side === "YES" ? "text-green-400" : "text-red-400";
+      var question = p.question.length > 50 ? p.question.substring(0, 50) + "..." : p.question;
+      rows += '<tr class="border-t border-outline-variant/5">' +
+        '<td class="py-3 text-xs"><a href="/market/' + p.marketId + '" class="text-primary hover:underline">' + question + '</a></td>' +
+        '<td class="py-3 ' + sideClass + ' font-bold text-xs">' + p.side + '</td>' +
+        '<td class="py-3 text-right font-mono text-xs">' + p.shares + '</td>' +
+        '<td class="py-3 text-right text-xs">' + p.currentPrice + '%</td>' +
+        '<td class="py-3 text-right font-bold text-xs">' + value + ' QRL</td></tr>';
+    });
+    tbody.innerHTML = rows;
+  }
+
+  function renderHistory() {
+    var tbody = document.getElementById("profileHistoryBody");
+    var start = historyPage * historyPerPage;
+    var page = allHistory.slice(start, start + historyPerPage);
+
+    if (!allHistory.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-on-surface-variant text-xs">No trading history</td></tr>';
+      return;
+    }
+
+    var rows = "";
+    page.forEach(function(t) {
+      var typeClass = t.type === "Buy" ? "text-green-400" : t.type === "Sell" ? "text-red-400" : "text-primary";
+      var sideClass = t.side === "YES" ? "text-green-400" : t.side === "NO" ? "text-red-400" : "";
+      var question = (t.question || "Market #" + t.marketIndex);
+      question = question.length > 40 ? question.substring(0, 40) + "..." : question;
+      var timeStr = t.timestamp ? new Date(t.timestamp * 1000).toLocaleDateString() : "—";
+
+      rows += '<tr class="border-t border-outline-variant/5">' +
+        '<td class="py-3 text-xs font-bold ' + typeClass + '">' + t.type + '</td>' +
+        '<td class="py-3 text-xs">' + question + '</td>' +
+        '<td class="py-3 text-xs ' + sideClass + '">' + (t.side || "—") + '</td>' +
+        '<td class="py-3 text-right font-mono text-xs">' + t.amount + '</td>' +
+        '<td class="py-3 text-right text-xs">' + t.costOrPayout + ' QRL</td>' +
+        '<td class="py-3 text-right text-on-surface-variant text-xs">' + timeStr + '</td></tr>';
+    });
+    tbody.innerHTML = rows;
+
+    // Pagination
+    var totalPages = Math.ceil(allHistory.length / historyPerPage);
+    var pagDiv = document.getElementById("historyPagination");
+    if (totalPages > 1) {
+      pagDiv.classList.remove("hidden");
+      document.getElementById("historyPageInfo").textContent = (historyPage + 1) + " / " + totalPages;
+      document.getElementById("historyPrev").disabled = historyPage === 0;
+      document.getElementById("historyNext").disabled = historyPage >= totalPages - 1;
+    }
+  }
+
+  document.getElementById("historyPrev").addEventListener("click", function() {
+    if (historyPage > 0) { historyPage--; renderHistory(); }
+  });
+  document.getElementById("historyNext").addEventListener("click", function() {
+    var totalPages = Math.ceil(allHistory.length / historyPerPage);
+    if (historyPage < totalPages - 1) { historyPage++; renderHistory(); }
+  });
+})();
+</script>
