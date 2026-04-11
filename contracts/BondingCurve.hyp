@@ -1,0 +1,288 @@
+// SPDX-License-Identifier: MIT
+pragma hyperion ^0.0.2;
+
+import "./PqlToken.hyp";
+import "./Ownable.hyp";
+import "./ReentrancyGuard.hyp";
+
+/// @title Linear Bonding Curve for PQL
+/// @notice Handles the trading of PQL tokens using a linear price curve.
+contract BondingCurve is Ownable, ReentrancyGuard {
+
+    PqlToken public pqlToken;
+
+    /// @dev Base price: 0.1 QRL per PQL when supply = 0.
+    uint256 public constant BASE_PRICE = 1e17;
+
+    /// @dev Price slope: each additional PQL adds 0.03 QRL to the marginal price.
+    ///      At supply S (in PQL), price = 0.1 + 0.03 * S  (in QRL).
+    ///      Cost of 100 PQL ≈ 160 QRL (fits within 400 QRL testnet faucet claim).
+    uint256 public constant PRICE_SLOPE = 3e16; // 0.03 * 1e18
+
+    /// @dev Graduation hardcap in QRL (wei).  When reserveBalance >= HARDCAP,
+    ///      buy/sell are disabled and graduation can proceed.
+    uint256 public constant HARDCAP = 5_000 ether; // 5,000 QRL
+
+    /// @dev Sell fee in basis points (2 %).
+    uint256 public constant SELL_FEE_BPS = 200;
+    uint256 public constant BPS = 10000;
+
+    /// @dev Total QRL held as reserve backing the curve.
+    uint256 public reserveBalance;
+
+    /// @dev Track total PQL supply minted through this curve (excludes external mints).
+    uint256 public curveSupply;
+
+    /// @dev True after graduation event.
+    bool public graduated;
+
+    /// @dev Address of the liquidity pool (set on graduation).
+    address public liquidityPool;
+
+    /// @dev Protocol fee recipient.
+    address public treasury;
+
+    /// @dev Accumulated protocol fees (QRL) not yet withdrawn.
+    uint256 public protocolFees;
+
+    // ---- Events ----
+    event Bought(address indexed buyer, uint256 qrlIn, uint256 pqlOut, uint256 newPrice);
+    event Sold(address indexed seller, uint256 pqlIn, uint256 qrlOut, uint256 fee, uint256 newPrice);
+    event Graduated(uint256 reserveBalance, uint256 curveSupply, address liquidityPool);
+    event TreasuryUpdated(address indexed newTreasury);
+    event FeesWithdrawn(address indexed to, uint256 amount);
+
+    modifier notGraduated() {
+        require(!graduated, "Curve graduated");
+        _;
+    }
+
+    constructor(address _pqlToken, address _treasury) Ownable(msg.sender) {
+        pqlToken = PqlToken(_pqlToken);
+        treasury = _treasury;
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //                        BUY  (QRL → PQL)
+    // ════════════════════════════════════════════════════════════
+
+    /// @notice Buys PQL tokens by providing QRL.
+    /// @param minPqlOut Slippage protection; reverts if the minted amount is less.
+    function buy(uint256 minPqlOut) external payable notGraduated nonReentrant {
+        require(msg.value > 0, "Send QRL");
+
+        uint256 s1 = curveSupply;
+        uint256 s2 = _solveBuySupply(s1, msg.value);
+
+        uint256 pqlOut = s2 - s1;
+        require(pqlOut > 0, "Amount too small");
+        require(pqlOut >= minPqlOut, "Slippage");
+
+        curveSupply = s2;
+        reserveBalance += msg.value;
+
+        pqlToken.mint(msg.sender, pqlOut);
+
+        emit Bought(msg.sender, msg.value, pqlOut, _currentPrice());
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //                        SELL (PQL → QRL)
+    // ════════════════════════════════════════════════════════════
+
+    /// @notice Sells PQL tokens back for QRL.
+    /// @param pqlAmount Number of PQL tokens to sell.
+    /// @param minQrlOut Slippage protection; reverts if QRL refund is less.
+    function sell(uint256 pqlAmount, uint256 minQrlOut) external notGraduated nonReentrant {
+        require(pqlAmount > 0, "Zero amount");
+        require(pqlAmount <= curveSupply, "Exceeds curve supply");
+
+        uint256 s1 = curveSupply;
+        uint256 s2 = s1 - pqlAmount;
+
+        uint256 grossRefund = _costBetween(s2, s1);
+
+        uint256 fee = grossRefund * SELL_FEE_BPS / BPS;
+        uint256 netRefund = grossRefund - fee;
+
+        require(netRefund >= minQrlOut, "Slippage");
+        require(netRefund <= reserveBalance, "Insufficient reserve");
+
+        // Transfer PQL from seller → burn
+        require(pqlToken.transferFrom(msg.sender, address(this), pqlAmount), "Transfer failed");
+        pqlToken.burn(pqlAmount);
+
+        curveSupply = s2;
+        reserveBalance -= netRefund;
+        protocolFees += fee;
+
+        (bool sent, ) = msg.sender.call{value: netRefund}("");
+        require(sent, "QRL transfer failed");
+
+        emit Sold(msg.sender, pqlAmount, netRefund, fee, _currentPrice());
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //                       GRADUATION
+    // ════════════════════════════════════════════════════════════
+
+    /// @notice Graduates the curve and migrates the reserve to the given pool.
+    /// @param _pool Deployed liquidity pool address.
+    function graduate(address _pool) external onlyOwner notGraduated {
+        require(reserveBalance >= HARDCAP, "Hardcap not reached");
+        require(_pool != address(0), "Invalid pool");
+
+        graduated = true;
+        liquidityPool = _pool;
+
+        // Mint matching PQL to pair with the reserve in the pool.
+        uint256 poolPql = curveSupply;
+        pqlToken.mint(_pool, poolPql);
+
+        // Send all reserve QRL to the pool
+        uint256 toPool = reserveBalance - protocolFees;
+        reserveBalance = 0;
+
+        (bool sent, ) = _pool.call{value: toPool}("");
+        require(sent, "Pool fund failed");
+
+        emit Graduated(toPool, poolPql, _pool);
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //                        VIEWS
+    // ════════════════════════════════════════════════════════════
+
+    /// @notice Returns the current marginal price of PQL.
+    /// @return Price in wei per 1e18 PQL.
+    function currentPrice() external view returns (uint256) {
+        return _currentPrice();
+    }
+
+    /// @notice Estimates the amount of PQL minted for a given QRL input.
+    /// @param qrlAmount Amount of provided QRL in wei.
+    /// @return pqlOut Estimated PQL.
+    function estimateBuy(uint256 qrlAmount) external view returns (uint256 pqlOut) {
+        if (qrlAmount == 0) return 0;
+        uint256 s1 = curveSupply;
+        uint256 s2 = _solveBuySupply(s1, qrlAmount);
+        pqlOut = s2 > s1 ? s2 - s1 : 0;
+    }
+
+    /// @notice Estimates the QRL refunded when selling a given PQL amount.
+    /// @param pqlAmount Amount of PQL to sell.
+    /// @return qrlOut Estimated refund after sell fees.
+    function estimateSell(uint256 pqlAmount) external view returns (uint256 qrlOut) {
+        if (pqlAmount == 0 || pqlAmount > curveSupply) return 0;
+        uint256 gross = _costBetween(curveSupply - pqlAmount, curveSupply);
+        uint256 fee = gross * SELL_FEE_BPS / BPS;
+        qrlOut = gross - fee;
+    }
+
+    /// @notice Returns the general state of the bonding curve.
+    /// @return _reserveBalance Current reserves.
+    /// @return _curveSupply Outstanding PQL supply from the curve.
+    /// @return _price Marginal rate (QRL per PQL).
+    /// @return _hardcap Requisite reserve value for graduation.
+    /// @return _graduated True if the bonding curve has migrated.
+    /// @return _liquidityPool Initialized liquidity pool if graduated.
+    /// @return _protocolFees Aggregated trading fees.
+    function getCurveInfo() external view returns (
+        uint256 _reserveBalance,
+        uint256 _curveSupply,
+        uint256 _price,
+        uint256 _hardcap,
+        bool _graduated,
+        address _liquidityPool,
+        uint256 _protocolFees
+    ) {
+        return (
+            reserveBalance,
+            curveSupply,
+            _currentPrice(),
+            HARDCAP,
+            graduated,
+            liquidityPool,
+            protocolFees
+        );
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //                        ADMIN
+    // ════════════════════════════════════════════════════════════
+
+    function setTreasury(address _treasury) external onlyOwner {
+        require(_treasury != address(0), "Zero address");
+        treasury = _treasury;
+        emit TreasuryUpdated(_treasury);
+    }
+
+    function withdrawFees() external nonReentrant {
+        require(treasury != address(0), "No treasury");
+        uint256 amount = protocolFees;
+        require(amount > 0, "No fees");
+        protocolFees = 0;
+
+        (bool sent, ) = treasury.call{value: amount}("");
+        require(sent, "Transfer failed");
+
+        emit FeesWithdrawn(treasury, amount);
+    }
+
+    /// @dev Accept QRL deposits (e.g. for seeding reserve).
+    receive() external payable {
+        reserveBalance += msg.value;
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //                      INTERNAL MATH
+    // ════════════════════════════════════════════════════════════
+
+    /// @dev Current marginal price = BASE_PRICE + PRICE_SLOPE * supply / 1e18.
+    ///      Returns wei per 1e18 PQL.  At supply=0 returns 1e17 (0.1 QRL).
+    function _currentPrice() internal view returns (uint256) {
+        return BASE_PRICE + PRICE_SLOPE * curveSupply / 1e18;
+    }
+
+    /// @dev Marginal price at a given supply level.
+    function _priceAt(uint256 s) internal pure returns (uint256) {
+        return BASE_PRICE + PRICE_SLOPE * s / 1e18;
+    }
+
+    /// @dev Cumulative cost from supply=0 to supply=s (in QRL wei).
+    ///      F(s) = BASE_PRICE * s / 1e18  +  PRICE_SLOPE * s / 1e18 * s / (2 * 1e18)
+    function _costFromZero(uint256 s) internal pure returns (uint256) {
+        return BASE_PRICE * s / 1e18
+             + PRICE_SLOPE * s / 1e18 * s / (2 * 1e18);
+    }
+
+    /// @dev Cost between two supply levels:  F(sHigh) - F(sLow).
+    ///      Requires sHigh >= sLow.
+    function _costBetween(uint256 sLow, uint256 sHigh) internal pure returns (uint256) {
+        return _costFromZero(sHigh) - _costFromZero(sLow);
+    }
+
+    /// @dev Solve for new supply s2 given current supply s1 and QRL spent.
+    ///      Uses binary search on the monotonically increasing cost function.
+    ///      Finds the largest s2 where F(s2) - F(s1) <= qrlIn.
+    function _solveBuySupply(uint256 s1, uint256 qrlIn) internal pure returns (uint256) {
+        uint256 target = _costFromZero(s1) + qrlIn;
+
+        // Upper bound: at minimum price (BASE_PRICE), max PQL = qrlIn * 1e18 / BASE_PRICE
+        uint256 lo = s1;
+        uint256 hi = s1 + qrlIn * 10; // 0.1 QRL base → up to 10x qrlIn PQL-wei
+
+        // Binary search: 80 iterations gives sub-wei precision for any realistic range
+        for (uint256 i = 0; i < 80; i++) {
+            if (lo >= hi) break;
+            uint256 mid = (lo + hi + 1) / 2;
+            if (_costFromZero(mid) <= target) {
+                lo = mid;
+            } else {
+                hi = mid - 1;
+            }
+        }
+
+        return lo;
+    }
+}

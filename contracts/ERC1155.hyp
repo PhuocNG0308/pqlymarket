@@ -1,0 +1,193 @@
+// SPDX-License-Identifier: MIT
+pragma hyperion ^0.0.2;
+
+import "./IERC1155.hyp";
+import "./IERC1155Receiver.hyp";
+
+/// @title ERC1155 - Standard Multi-Token Implementation
+/// @dev Minimal implementation covering mint, burn, transfers, and approvals
+contract ERC1155 is IERC1155 {
+    // tokenId => account => balance
+    mapping(uint256 => mapping(address => uint256)) private _balances;
+    // account => operator => approved
+    mapping(address => mapping(address => bool)) private _operatorApprovals;
+
+    string private _uri;
+
+    constructor(string memory uri_) {
+        _uri = uri_;
+    }
+
+    // ---- ERC165 ----
+
+    function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
+        return
+            interfaceId == type(IERC1155).interfaceId ||
+            interfaceId == type(IERC165).interfaceId;
+    }
+
+    // ---- Metadata ----
+
+    function uri(uint256) public view returns (string memory) {
+        return _uri;
+    }
+
+    // ---- Balance ----
+
+    function balanceOf(address account, uint256 id) public view override returns (uint256) {
+        return _balances[id][account];
+    }
+
+    function balanceOfBatch(
+        address[] calldata accounts,
+        uint256[] calldata ids
+    ) public view override returns (uint256[] memory) {
+        require(accounts.length == ids.length, "ERC1155: length mismatch");
+        uint256[] memory batchBalances = new uint256[](accounts.length);
+        for (uint256 i = 0; i < accounts.length; i++) {
+            batchBalances[i] = _balances[ids[i]][accounts[i]];
+        }
+        return batchBalances;
+    }
+
+    // ---- Approvals ----
+
+    function setApprovalForAll(address operator, bool approved) public override {
+        require(msg.sender != operator, "ERC1155: self approval");
+        _operatorApprovals[msg.sender][operator] = approved;
+        emit ApprovalForAll(msg.sender, operator, approved);
+    }
+
+    function isApprovedForAll(address account, address operator) public view override returns (bool) {
+        return _operatorApprovals[account][operator];
+    }
+
+    // ---- Transfers ----
+
+    function safeTransferFrom(
+        address from,
+        address to,
+        uint256 id,
+        uint256 value,
+        bytes calldata data
+    ) public override {
+        require(
+            from == msg.sender || isApprovedForAll(from, msg.sender),
+            "ERC1155: not authorized"
+        );
+        _safeTransferFrom(from, to, id, value, data);
+    }
+
+    function safeBatchTransferFrom(
+        address from,
+        address to,
+        uint256[] calldata ids,
+        uint256[] calldata values,
+        bytes calldata data
+    ) public override {
+        require(
+            from == msg.sender || isApprovedForAll(from, msg.sender),
+            "ERC1155: not authorized"
+        );
+        require(ids.length == values.length, "ERC1155: length mismatch");
+        require(to != address(0), "ERC1155: transfer to zero address");
+
+        for (uint256 i = 0; i < ids.length; i++) {
+            uint256 id = ids[i];
+            uint256 amount = values[i];
+            uint256 fromBalance = _balances[id][from];
+            require(fromBalance >= amount, "ERC1155: insufficient balance");
+            unchecked {
+                _balances[id][from] = fromBalance - amount;
+            }
+            _balances[id][to] += amount;
+        }
+
+        emit TransferBatch(msg.sender, from, to, ids, values);
+        _checkOnERC1155BatchReceived(msg.sender, from, to, ids, values, data);
+    }
+
+    // ---- Internal: Mint / Burn ----
+
+    function _mint(address to, uint256 id, uint256 value, bytes memory data) internal {
+        require(to != address(0), "ERC1155: mint to zero address");
+        _balances[id][to] += value;
+        emit TransferSingle(msg.sender, address(0), to, id, value);
+        _checkOnERC1155Received(msg.sender, address(0), to, id, value, data);
+    }
+
+    function _burn(address from, uint256 id, uint256 value) internal {
+        require(from != address(0), "ERC1155: burn from zero address");
+        uint256 fromBalance = _balances[id][from];
+        require(fromBalance >= value, "ERC1155: insufficient balance");
+        unchecked {
+            _balances[id][from] = fromBalance - value;
+        }
+        emit TransferSingle(msg.sender, from, address(0), id, value);
+    }
+
+    // ---- Internal: Transfer ----
+
+    function _safeTransferFrom(
+        address from,
+        address to,
+        uint256 id,
+        uint256 value,
+        bytes calldata data
+    ) internal {
+        require(to != address(0), "ERC1155: transfer to zero address");
+        uint256 fromBalance = _balances[id][from];
+        require(fromBalance >= value, "ERC1155: insufficient balance");
+        unchecked {
+            _balances[id][from] = fromBalance - value;
+        }
+        _balances[id][to] += value;
+
+        emit TransferSingle(msg.sender, from, to, id, value);
+        _checkOnERC1155Received(msg.sender, from, to, id, value, data);
+    }
+
+    // ---- Internal: Safe-transfer acceptance checks ----
+
+    function _checkOnERC1155Received(
+        address operator,
+        address from,
+        address to,
+        uint256 id,
+        uint256 value,
+        bytes memory data
+    ) private {
+        if (to.code.length > 0) {
+            try IERC1155Receiver(to).onERC1155Received(operator, from, id, value, data) returns (bytes4 response) {
+                if (response != IERC1155Receiver.onERC1155Received.selector) {
+                    revert("ERC1155: rejected by receiver");
+                }
+            } catch Error(string memory reason) {
+                revert(reason);
+            } catch {
+                revert("ERC1155: non-ERC1155Receiver");
+            }
+        }
+    }
+
+    function _checkOnERC1155BatchReceived(
+        address operator,
+        address from,
+        address to,
+        uint256[] memory ids,
+        uint256[] memory values,
+        bytes memory data
+    ) private {
+        if (to.code.length > 0) {
+            try IERC1155Receiver(to).onERC1155BatchReceived(operator, from, ids, values, data) returns (bytes4 response) {
+                if (response != IERC1155Receiver.onERC1155BatchReceived.selector) {
+                    revert("ERC1155: rejected by receiver");
+                }
+            } catch Error(string memory reason) {
+                revert(reason);
+            } catch {
+                revert("ERC1155: non-ERC1155Receiver");
+            }
+        }
+    }
+}

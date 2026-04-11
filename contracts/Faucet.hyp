@@ -1,0 +1,79 @@
+// SPDX-License-Identifier: MIT
+pragma hyperion ^0.0.2;
+
+/// @title Faucet - One-time QRL distribution for testnet users
+/// @notice Each address can claim once. Owner can claim on behalf of users (gas-free for recipients).
+contract Faucet {
+    address public owner;
+    uint256 public claimAmount;
+    mapping(address => bool) public hasClaimed;
+
+    event Claimed(address indexed recipient, uint256 amount);
+    event ClaimAmountUpdated(uint256 oldAmount, uint256 newAmount);
+    event Funded(address indexed funder, uint256 amount);
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Not owner");
+        _;
+    }
+
+    constructor(uint256 _claimAmount) payable {
+        owner = msg.sender;
+        claimAmount = _claimAmount;
+    }
+
+    /// @notice Claim testnet QRL (one time per address)
+    function claim() external {
+        require(!hasClaimed[msg.sender], "Already claimed");
+        require(address(this).balance >= claimAmount, "Faucet empty");
+
+        hasClaimed[msg.sender] = true;
+
+        (bool sent, ) = msg.sender.call{value: claimAmount}("");
+        require(sent, "Transfer failed");
+
+        emit Claimed(msg.sender, claimAmount);
+    }
+
+    /// @notice Claim on behalf of a recipient (owner only, gas-free for user)
+    function claimFor(address recipient) external onlyOwner {
+        require(recipient != address(0), "Invalid recipient");
+        require(!hasClaimed[recipient], "Already claimed");
+        require(address(this).balance >= claimAmount, "Faucet empty");
+
+        hasClaimed[recipient] = true;
+
+        (bool sent, ) = recipient.call{value: claimAmount}("");
+        require(sent, "Transfer failed");
+
+        emit Claimed(recipient, claimAmount);
+    }
+
+    /// @notice Check if an address has already claimed
+    function hasAddressClaimed(address addr) external view returns (bool) {
+        return hasClaimed[addr];
+    }
+
+    /// @notice Update claim amount (owner only)
+    function setClaimAmount(uint256 _newAmount) external onlyOwner {
+        emit ClaimAmountUpdated(claimAmount, _newAmount);
+        claimAmount = _newAmount;
+    }
+
+    /// @notice Withdraw all QRL from the faucet back to owner (for redeployment)
+    function withdrawAll() external onlyOwner {
+        uint256 bal = address(this).balance;
+        require(bal > 0, "Nothing to withdraw");
+        (bool sent, ) = owner.call{value: bal}("");
+        require(sent, "Transfer failed");
+    }
+
+    /// @notice Get faucet balance
+    function getBalance() external view returns (uint256) {
+        return address(this).balance;
+    }
+
+    receive() external payable {
+        emit Funded(msg.sender, msg.value);
+    }
+}

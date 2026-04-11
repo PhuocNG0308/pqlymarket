@@ -1,0 +1,201 @@
+// SPDX-License-Identifier: MIT
+pragma hyperion ^0.0.2;
+
+import "./PqlToken.hyp";
+import "./Ownable.hyp";
+import "./ReentrancyGuard.hyp";
+
+/// @title LiquidityPool - Simple constant-product QRL/PQL AMM pool
+/// @notice Created by BondingCurve graduation.  Provides continuous QRL↔PQL trading
+///         after the bonding curve phase ends.
+contract LiquidityPool is Ownable, ReentrancyGuard {
+
+    PqlToken public pqlToken;
+
+    /// @dev QRL reserve held by the pool.
+    uint256 public reserveQRL;
+    /// @dev PQL reserve held by the pool.
+    uint256 public reservePQL;
+
+    /// @dev Swap fee (0.3 % = 30 bps).
+    uint256 public constant FEE_BPS = 30;
+    uint256 public constant BPS = 10000;
+
+    /// @dev LP share tracking (simple proportional — no ERC20 LP token for now).
+    mapping(address => uint256) public lpShares;
+    uint256 public totalShares;
+
+    bool public initialized;
+
+    event PoolInitialized(uint256 qrlAmount, uint256 pqlAmount);
+    event Swapped(address indexed user, bool qrlToPql, uint256 amountIn, uint256 amountOut);
+    event LiquidityAdded(address indexed provider, uint256 qrlAmount, uint256 pqlAmount, uint256 shares);
+    event LiquidityRemoved(address indexed provider, uint256 qrlAmount, uint256 pqlAmount, uint256 shares);
+
+    constructor(address _pqlToken) Ownable(msg.sender) {
+        pqlToken = PqlToken(_pqlToken);
+    }
+
+    /// @notice Initialize the pool with paired liquidity (called once by BondingCurve graduation).
+    ///         Receives QRL via msg.value and pulls PQL via transferFrom.
+    /// @param pqlAmount  PQL to seed (must be pre-approved).
+    function initialize(uint256 pqlAmount) external payable onlyOwner {
+        require(!initialized, "Already initialized");
+        require(msg.value > 0 && pqlAmount > 0, "Zero liquidity");
+
+        initialized = true;
+        reserveQRL = msg.value;
+        reservePQL = pqlAmount;
+
+        require(pqlToken.transferFrom(msg.sender, address(this), pqlAmount), "PQL transfer failed");
+
+        uint256 shares = msg.value;
+        lpShares[msg.sender] = shares;
+        totalShares = shares;
+
+        emit PoolInitialized(msg.value, pqlAmount);
+        emit LiquidityAdded(msg.sender, msg.value, pqlAmount, shares);
+    }
+
+
+    /// @notice Swap QRL → PQL.  Send QRL as msg.value, receive PQL.
+    /// @param minPqlOut  Slippage protection.
+    function swapQRLForPQL(uint256 minPqlOut) external payable nonReentrant {
+        require(initialized, "Not initialized");
+        require(msg.value > 0, "Send QRL");
+
+        uint256 fee = msg.value * FEE_BPS / BPS;
+        uint256 netIn = msg.value - fee;
+
+        uint256 amountOut = reservePQL * netIn / (reserveQRL + netIn);
+        require(amountOut > 0 && amountOut >= minPqlOut, "Slippage");
+        require(amountOut < reservePQL, "Insufficient liquidity");
+
+        reserveQRL += msg.value;
+        reservePQL -= amountOut;
+
+        require(pqlToken.transfer(msg.sender, amountOut), "PQL transfer failed");
+
+        emit Swapped(msg.sender, true, msg.value, amountOut);
+    }
+
+    /// @notice Swap PQL → QRL.  Caller must approve PQL first.
+    /// @param pqlAmount  PQL to sell.
+    /// @param minQrlOut  Slippage protection.
+    function swapPQLForQRL(uint256 pqlAmount, uint256 minQrlOut) external nonReentrant {
+        require(initialized, "Not initialized");
+        require(pqlAmount > 0, "Zero amount");
+
+        uint256 fee = pqlAmount * FEE_BPS / BPS;
+        uint256 netIn = pqlAmount - fee;
+
+        uint256 amountOut = reserveQRL * netIn / (reservePQL + netIn);
+        require(amountOut > 0 && amountOut >= minQrlOut, "Slippage");
+        require(amountOut < reserveQRL, "Insufficient liquidity");
+
+        require(pqlToken.transferFrom(msg.sender, address(this), pqlAmount), "PQL transfer failed");
+
+        reservePQL += pqlAmount;
+        reserveQRL -= amountOut;
+
+        (bool sent, ) = msg.sender.call{value: amountOut}("");
+        require(sent, "QRL transfer failed");
+
+        emit Swapped(msg.sender, false, pqlAmount, amountOut);
+    }
+
+
+    /// @notice Add proportional liquidity. Caller sends QRL + approves PQL.
+    function addLiquidity(uint256 pqlAmount) external payable nonReentrant {
+        require(initialized, "Not initialized");
+        require(msg.value > 0 && pqlAmount > 0, "Zero amounts");
+
+        uint256 qrlRatio = msg.value * 1e18 / reserveQRL;
+        uint256 pqlRatio = pqlAmount * 1e18 / reservePQL;
+        uint256 ratio = qrlRatio < pqlRatio ? qrlRatio : pqlRatio;
+
+        uint256 actualQRL = reserveQRL * ratio / 1e18;
+        uint256 actualPQL = reservePQL * ratio / 1e18;
+        require(actualQRL > 0 && actualPQL > 0, "Too small");
+
+        uint256 shares = totalShares * ratio / 1e18;
+        require(shares > 0, "Zero shares");
+
+        require(pqlToken.transferFrom(msg.sender, address(this), actualPQL), "PQL transfer failed");
+
+        reserveQRL += actualQRL;
+        reservePQL += actualPQL;
+        lpShares[msg.sender] += shares;
+        totalShares += shares;
+
+        uint256 excessQRL = msg.value - actualQRL;
+        if (excessQRL > 0) {
+            (bool sent, ) = msg.sender.call{value: excessQRL}("");
+            require(sent, "Refund failed");
+        }
+
+        emit LiquidityAdded(msg.sender, actualQRL, actualPQL, shares);
+    }
+
+    /// @notice Remove liquidity proportionally.
+    /// @param shares  LP shares to burn.
+    function removeLiquidity(uint256 shares) external nonReentrant {
+        require(initialized, "Not initialized");
+        require(shares > 0 && shares <= lpShares[msg.sender], "Invalid shares");
+
+        uint256 qrlOut = reserveQRL * shares / totalShares;
+        uint256 pqlOut = reservePQL * shares / totalShares;
+        require(qrlOut > 0 || pqlOut > 0, "Nothing to withdraw");
+
+        lpShares[msg.sender] -= shares;
+        totalShares -= shares;
+        reserveQRL -= qrlOut;
+        reservePQL -= pqlOut;
+
+        if (pqlOut > 0) {
+            require(pqlToken.transfer(msg.sender, pqlOut), "PQL transfer failed");
+        }
+        if (qrlOut > 0) {
+            (bool sent, ) = msg.sender.call{value: qrlOut}("");
+            require(sent, "QRL transfer failed");
+        }
+
+        emit LiquidityRemoved(msg.sender, qrlOut, pqlOut, shares);
+    }
+
+
+    /// @notice Get current PQL price in QRL (wei per 1e18 PQL).
+    function getPrice() external view returns (uint256) {
+        if (reservePQL == 0) return 0;
+        return reserveQRL * 1e18 / reservePQL;
+    }
+
+    /// @notice Estimate output for QRL→PQL swap.
+    function estimateswapQRLForPQL(uint256 qrlIn) external view returns (uint256) {
+        uint256 netIn = qrlIn * (BPS - FEE_BPS) / BPS;
+        return reservePQL * netIn / (reserveQRL + netIn);
+    }
+
+    /// @notice Estimate output for PQL→QRL swap.
+    function estimateswapPQLForQRL(uint256 pqlIn) external view returns (uint256) {
+        uint256 netIn = pqlIn * (BPS - FEE_BPS) / BPS;
+        return reserveQRL * netIn / (reservePQL + netIn);
+    }
+
+    /// @notice Get pool info for the frontend.
+    function getPoolInfo() external view returns (
+        uint256 _reserveQRL,
+        uint256 _reservePQL,
+        uint256 _totalShares,
+        uint256 _price,
+        bool _initialized
+    ) {
+        uint256 price = reservePQL > 0 ? reserveQRL * 1e18 / reservePQL : 0;
+        return (reserveQRL, reservePQL, totalShares, price, initialized);
+    }
+
+    /// @dev Accept QRL (used during graduation).
+    receive() external payable {
+        reserveQRL += msg.value;
+    }
+}

@@ -1,0 +1,43 @@
+// SPDX-License-Identifier: MIT
+pragma hyperion ^0.0.2;
+
+import "./ERC20.hyp";
+import "./Ownable.hyp";
+
+/// @title PqlToken - ERC20 governance token for PQlyMarket oracle voting
+/// @notice PQL holders can vote on market outcomes via the GovernanceOracle.
+contract PqlToken is ERC20, Ownable {
+    uint256 public constant MAX_SUPPLY = 100_000_000 ether; // 100M PQL
+
+    /// @dev Addresses allowed to mint (e.g., Faucet, staking rewards)
+    mapping(address => bool) public authorizedMinters;
+
+    event MinterUpdated(address indexed minter, bool authorized);
+
+    modifier onlyMinter() {
+        require(authorizedMinters[msg.sender] || msg.sender == owner(), "Not authorized minter");
+        _;
+    }
+
+    constructor(uint256 initialSupply) ERC20("PQlyMarket Governance", "PQL") Ownable(msg.sender) {
+        require(initialSupply <= MAX_SUPPLY, "Exceeds max supply");
+        _mint(msg.sender, initialSupply);
+    }
+
+    /// @notice Mint new PQL tokens (owner or authorized minters)
+    function mint(address to, uint256 amount) external onlyMinter {
+        require(totalSupply() + amount <= MAX_SUPPLY, "Exceeds max supply");
+        _mint(to, amount);
+    }
+
+    /// @notice Burn PQL tokens from caller
+    function burn(uint256 amount) external {
+        _burn(msg.sender, amount);
+    }
+
+    /// @notice Set or revoke minter authorization
+    function setMinter(address minter, bool authorized) external onlyOwner {
+        authorizedMinters[minter] = authorized;
+        emit MinterUpdated(minter, authorized);
+    }
+}

@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: MIT
+pragma hyperion ^0.0.2;
+
+import "./Ownable.hyp";
+import "./IOracle.hyp";
+
+/// @title Oracle - Simple admin-controlled oracle for resolving prediction market outcomes
+/// @notice Legacy oracle — can be replaced by GovernanceOracle for decentralized voting
+contract Oracle is Ownable {
+    // Use same Outcome enum as IOracle
+    enum Outcome { Unresolved, Yes, No, Invalid }
+
+    mapping(uint256 => Outcome) public outcomes;
+    mapping(uint256 => bool) public isResolved;
+
+    event MarketResolved(uint256 indexed marketId, Outcome outcome);
+
+    constructor() Ownable(msg.sender) {}
+
+    /// @notice Resolve a market with a winning outcome (only admin)
+    function resolve(uint256 marketId, Outcome outcome) external onlyOwner {
+        require(!isResolved[marketId], "Already resolved");
+        require(outcome != Outcome.Unresolved, "Invalid outcome");
+
+        outcomes[marketId] = outcome;
+        isResolved[marketId] = true;
+
+        emit MarketResolved(marketId, outcome);
+    }
+
+    /// @notice Get the outcome of a market
+    function getOutcome(uint256 marketId) external view returns (Outcome) {
+        return outcomes[marketId];
+    }
+}

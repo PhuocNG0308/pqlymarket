@@ -1,0 +1,28 @@
+{
+  "name": "pqlymarket",
+  "version": "1.0.0",
+  "description": "Decentralized prediction market (Polymarket clone) built on **QRL 2.0 Zond Testnet** - post-quantum secure, EVM-compatible blockchain.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "compile": "node scripts/hyp-compile.js",
+    "deploy": "node scripts/deploy-qrl.js",
+    "drain": "node scripts/drain-contracts.js",
+    "build:contracts": "node scripts/hyp-compile.js",
+    "build:frontend": "cd frontend && npm install && npm run build",
+    "build": "npm run build:contracts && npm run build:frontend",
+    "frontend:dev": "cd frontend && npm install && npm run dev",
+    "dev": "npm run build:contracts && npm run drain && npm run deploy && npm run frontend:dev"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@theqrl/hypc": "^0.0.2",
+    "@theqrl/web3": "^0.4.0",
+    "@theqrl/web3-zond-accounts": "^0.3.3",
+    "dotenv": "^17.3.1"
+  }
+}

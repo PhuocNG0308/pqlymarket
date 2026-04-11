@@ -1,0 +1,274 @@
+// SPDX-License-Identifier: MIT
+pragma hyperion ^0.0.2;
+
+import "./Ownable.hyp";
+import "./ReentrancyGuard.hyp";
+import "./PqlToken.hyp";
+
+/// @title GovernanceOracle - Decentralized oracle with PQL token governance voting
+/// @notice Decentralized proposal and dispute resolution workflow.
+contract GovernanceOracle is Ownable, ReentrancyGuard {
+    enum Outcome { Unresolved, Yes, No, Invalid }
+
+    enum ProposalState {
+        None,
+        Proposed,
+        Disputed,
+        Finalized
+    }
+
+    struct Proposal {
+        Outcome proposedOutcome;
+        address proposer;
+        uint256 proposerStake;
+        uint256 proposedAt;
+        ProposalState state;
+        address disputer;
+        uint256 disputerStake;
+        Outcome counterOutcome;
+        uint256 disputeAt;
+        uint256 yesVotes;
+        uint256 noVotes;
+        mapping(address => uint256) voterStake;
+        mapping(address => bool) votedForProposal;
+    }
+
+    PqlToken public pqlToken;
+
+    /// @dev Finalized outcomes
+    mapping(uint256 => Outcome) public outcomes;
+    mapping(uint256 => bool) public isResolved;
+
+    /// @dev Active proposals per market
+    mapping(uint256 => Proposal) internal proposals;
+
+    /// @dev Market value (total liquidity in wei) used for dynamic stake calculation
+    mapping(uint256 => uint256) public marketValues;
+
+    uint256 public minProposerStake = 100 ether;
+    uint256 public minDisputeStake  = 100 ether;
+    uint256 public disputeWindow    = 24 hours;
+    uint256 public votingPeriod     = 48 hours;
+
+    /// @dev Dynamic stake: 1% of market value with floor = minProposerStake, cap = 10000 PQL
+    uint256 public constant STAKE_BPS = 100;
+    uint256 public constant STAKE_CAP = 10000 ether;
+    uint256 public constant BPS = 10000;
+
+    event OutcomeProposed(uint256 indexed marketId, Outcome outcome, address proposer, uint256 stake);
+    event OutcomeDisputed(uint256 indexed marketId, Outcome disputeOutcome, address disputer, uint256 stake);
+    event VoteCast(uint256 indexed marketId, address voter, bool forProposal, uint256 weight);
+    event MarketResolved(uint256 indexed marketId, Outcome outcome);
+    event ProposalFinalized(uint256 indexed marketId, Outcome outcome, bool disputed);
+    event EmergencyResolved(uint256 indexed marketId, Outcome outcome);
+    event ParametersUpdated(uint256 minProposerStake, uint256 minDisputeStake, uint256 disputeWindow, uint256 votingPeriod);
+    event MarketValueUpdated(uint256 indexed marketId, uint256 value);
+
+    constructor(address _pqlToken) Ownable(msg.sender) {
+        pqlToken = PqlToken(_pqlToken);
+    }
+
+
+    /// @notice Get the outcome of a resolved market
+    function getOutcome(uint256 marketId) external view returns (Outcome) {
+        return outcomes[marketId];
+    }
+
+    /// @notice Get proposal state for a market
+    function getProposalState(uint256 marketId) external view returns (ProposalState) {
+        return proposals[marketId].state;
+    }
+
+    /// @notice Get proposal details (excluding mappings)
+    function getProposalInfo(uint256 marketId) external view returns (
+        Outcome proposedOutcome,
+        address proposer,
+        uint256 proposerStake,
+        uint256 proposedAt,
+        ProposalState state,
+        address disputer,
+        uint256 disputerStake,
+        Outcome _counterOutcome,
+        uint256 disputeAt,
+        uint256 yesVotes,
+        uint256 noVotes
+    ) {
+        Proposal storage p = proposals[marketId];
+        return (
+            p.proposedOutcome,
+            p.proposer,
+            p.proposerStake,
+            p.proposedAt,
+            p.state,
+            p.disputer,
+            p.disputerStake,
+            p.counterOutcome,
+            p.disputeAt,
+            p.yesVotes,
+            p.noVotes
+        );
+    }
+
+    /// @notice Check how much a voter has staked on a market
+    function getVoterStake(uint256 marketId, address voter) external view returns (uint256) {
+        return proposals[marketId].voterStake[voter];
+    }
+
+    /// @notice Calculate the required stake for a market based on its value.
+    ///         Dynamic: 1% of market value, floored at minProposerStake, capped at STAKE_CAP.
+    function getRequiredStake(uint256 marketId) public view returns (uint256) {
+        uint256 value = marketValues[marketId];
+        if (value == 0) return minProposerStake;
+        uint256 dynamic = value * STAKE_BPS / BPS;
+        if (dynamic < minProposerStake) return minProposerStake;
+        if (dynamic > STAKE_CAP) return STAKE_CAP;
+        return dynamic;
+    }
+
+    /// @notice Set the market value (called by MarketFactory or admin when market closes).
+    function setMarketValue(uint256 marketId, uint256 value) external onlyOwner {
+        marketValues[marketId] = value;
+        emit MarketValueUpdated(marketId, value);
+    }
+
+
+    function proposeOutcome(uint256 marketId, Outcome outcome, uint256 stake) external nonReentrant {
+        require(!isResolved[marketId], "Already resolved");
+        require(outcome != Outcome.Unresolved, "Cannot propose Unresolved");
+
+        uint256 required = getRequiredStake(marketId);
+        require(stake >= required, "Stake below required minimum");
+
+        Proposal storage p = proposals[marketId];
+        require(p.state == ProposalState.None, "Proposal already exists");
+
+        require(pqlToken.transferFrom(msg.sender, address(this), stake), "Transfer failed");
+
+        p.proposedOutcome = outcome;
+        p.proposer = msg.sender;
+        p.proposerStake = stake;
+        p.proposedAt = block.timestamp;
+        p.state = ProposalState.Proposed;
+
+        emit OutcomeProposed(marketId, outcome, msg.sender, stake);
+    }
+
+
+    function disputeOutcome(uint256 marketId, Outcome counterOutcome, uint256 stake) external nonReentrant {
+        Proposal storage p = proposals[marketId];
+        require(p.state == ProposalState.Proposed, "Not in proposal phase");
+        require(block.timestamp < p.proposedAt + disputeWindow, "Dispute window closed");
+        require(counterOutcome != p.proposedOutcome, "Must propose different outcome");
+        require(counterOutcome != Outcome.Unresolved, "Cannot propose Unresolved");
+
+        uint256 required = getRequiredStake(marketId);
+        require(stake >= required, "Stake below required minimum");
+        require(msg.sender != p.proposer, "Proposer cannot dispute own proposal");
+
+        require(pqlToken.transferFrom(msg.sender, address(this), stake), "Transfer failed");
+
+        p.disputer = msg.sender;
+        p.disputerStake = stake;
+        p.counterOutcome = counterOutcome;
+        p.disputeAt = block.timestamp;
+        p.state = ProposalState.Disputed;
+
+        emit OutcomeDisputed(marketId, counterOutcome, msg.sender, stake);
+    }
+
+
+    function vote(uint256 marketId, bool forProposal, uint256 weight) external nonReentrant {
+        Proposal storage p = proposals[marketId];
+        require(p.state == ProposalState.Disputed, "Not in dispute phase");
+        require(block.timestamp < p.disputeAt + votingPeriod, "Voting period ended");
+        require(weight > 0, "Must stake QOL to vote");
+        require(p.voterStake[msg.sender] == 0, "Already voted");
+        require(msg.sender != p.proposer && msg.sender != p.disputer, "Proposer/disputer cannot vote");
+
+        require(pqlToken.transferFrom(msg.sender, address(this), weight), "Transfer failed");
+
+        p.voterStake[msg.sender] = weight;
+        p.votedForProposal[msg.sender] = forProposal;
+
+        if (forProposal) {
+            p.yesVotes += weight;
+        } else {
+            p.noVotes += weight;
+        }
+
+        emit VoteCast(marketId, msg.sender, forProposal, weight);
+    }
+
+
+    function finalizeProposal(uint256 marketId) external nonReentrant {
+        Proposal storage p = proposals[marketId];
+        require(p.state == ProposalState.Proposed, "Not in proposal phase");
+        require(block.timestamp >= p.proposedAt + disputeWindow, "Dispute window still open");
+
+        _finalize(marketId, p.proposedOutcome, false);
+
+        require(pqlToken.transfer(p.proposer, p.proposerStake), "Return stake failed");
+    }
+
+    function finalizeDispute(uint256 marketId) external nonReentrant {
+        Proposal storage p = proposals[marketId];
+        require(p.state == ProposalState.Disputed, "Not in dispute phase");
+        require(block.timestamp >= p.disputeAt + votingPeriod, "Voting still active");
+
+        bool proposalWins = p.yesVotes >= p.noVotes;
+        Outcome finalOutcome = proposalWins ? p.proposedOutcome : p.counterOutcome;
+
+        _finalize(marketId, finalOutcome, true);
+
+        uint256 totalStake = p.proposerStake + p.disputerStake;
+        if (proposalWins) {
+            require(pqlToken.transfer(p.proposer, totalStake), "Transfer failed");
+        } else {
+            require(pqlToken.transfer(p.disputer, totalStake), "Transfer failed");
+        }
+    }
+
+    function claimVoterStake(uint256 marketId) external nonReentrant {
+        Proposal storage p = proposals[marketId];
+        require(p.state == ProposalState.Finalized, "Not finalized");
+
+        uint256 stake = p.voterStake[msg.sender];
+        require(stake > 0, "No stake to claim");
+
+        p.voterStake[msg.sender] = 0;
+        require(pqlToken.transfer(msg.sender, stake), "Transfer failed");
+    }
+
+
+    function emergencyResolve(uint256 marketId, Outcome outcome) external onlyOwner {
+        require(outcome != Outcome.Unresolved, "Invalid outcome");
+        outcomes[marketId] = outcome;
+        isResolved[marketId] = true;
+        proposals[marketId].state = ProposalState.Finalized;
+
+        emit EmergencyResolved(marketId, outcome);
+    }
+
+    function updateParameters(
+        uint256 _minProposerStake,
+        uint256 _minDisputeStake,
+        uint256 _disputeWindow,
+        uint256 _votingPeriod
+    ) external onlyOwner {
+        minProposerStake = _minProposerStake;
+        minDisputeStake = _minDisputeStake;
+        disputeWindow = _disputeWindow;
+        votingPeriod = _votingPeriod;
+        emit ParametersUpdated(_minProposerStake, _minDisputeStake, _disputeWindow, _votingPeriod);
+    }
+
+
+    function _finalize(uint256 marketId, Outcome outcome, bool disputed) internal {
+        outcomes[marketId] = outcome;
+        isResolved[marketId] = true;
+        proposals[marketId].state = ProposalState.Finalized;
+
+        emit ProposalFinalized(marketId, outcome, disputed);
+        emit MarketResolved(marketId, outcome);
+    }
+}

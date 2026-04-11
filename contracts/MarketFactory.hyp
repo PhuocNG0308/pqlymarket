@@ -1,0 +1,176 @@
+// SPDX-License-Identifier: MIT
+pragma hyperion ^0.0.2;
+
+import "./PredictionMarket.hyp";
+import "./ConditionalToken.hyp";
+import "./IOracle.hyp";
+
+/// @title MarketFactory - Factory contract to create and manage prediction markets
+/// Supports both standalone markets and Polymarket-style grouped multi-outcome markets
+contract MarketFactory {
+    ConditionalToken public conditionalToken;
+    IOracle public oracle;
+    address public owner;
+
+    uint256 public marketCount;
+    mapping(uint256 => address) public markets;
+    address[] public allMarkets;
+
+    /// @dev Addresses allowed to create markets
+    mapping(address => bool) public isMarketCreator;
+
+    struct MarketGroup {
+        string title;
+        uint256[] marketIds;
+        string[] outcomeLabels;
+        uint256 endTime;
+        address creator;
+    }
+
+    uint256 public groupCount;
+    mapping(uint256 => MarketGroup) public _groups;
+    /// @dev Map every child market ID -> its parent group ID (+ 1, so 0 means "no group")
+    mapping(uint256 => uint256) public marketGroupId;
+
+    event MarketCreated(
+        uint256 indexed marketId,
+        address marketAddress,
+        string question,
+        uint256 endTime,
+        address creator
+    );
+
+    event MarketGroupCreated(
+        uint256 indexed groupId,
+        string title,
+        uint256[] marketIds,
+        string[] outcomeLabels,
+        uint256 endTime,
+        address creator
+    );
+
+    event MarketCreatorUpdated(address indexed account, bool allowed);
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Not owner");
+        _;
+    }
+
+    constructor(address _conditionalToken, address _oracle) {
+        conditionalToken = ConditionalToken(_conditionalToken);
+        oracle = IOracle(_oracle);
+        owner = msg.sender;
+        isMarketCreator[msg.sender] = true;
+    }
+
+    /// @notice Set or revoke market creation permission for an address
+    function setMarketCreator(address account, bool allowed) external onlyOwner {
+        isMarketCreator[account] = allowed;
+        emit MarketCreatorUpdated(account, allowed);
+    }
+
+    /// @notice Create a new prediction market (only allowed creators)
+    function createMarket(string memory question, uint256 endTime) external returns (address) {
+        require(isMarketCreator[msg.sender], "Not authorized to create markets");
+        uint256 marketId = marketCount;
+
+        PredictionMarket market = new PredictionMarket(
+            marketId,
+            question,
+            endTime,
+            msg.sender,
+            address(conditionalToken),
+            address(oracle)
+        );
+
+        address marketAddress = address(market);
+        markets[marketId] = marketAddress;
+        allMarkets.push(marketAddress);
+        marketCount++;
+
+        conditionalToken.setMinter(marketAddress, true);
+
+        emit MarketCreated(marketId, marketAddress, question, endTime, msg.sender);
+
+        return marketAddress;
+    }
+
+    /// @notice Create a Polymarket-style group of binary markets under one title
+    function createMarketGroup(
+        string memory title,
+        string[] memory outcomeLabels,
+        uint256 endTime
+    ) external returns (uint256 groupId) {
+        require(isMarketCreator[msg.sender], "Not authorized to create markets");
+        require(outcomeLabels.length >= 2, "Need at least 2 outcomes");
+        require(outcomeLabels.length <= 20, "Too many outcomes");
+
+        groupId = groupCount;
+        uint256[] memory ids = new uint256[](outcomeLabels.length);
+
+        for (uint256 i = 0; i < outcomeLabels.length; i++) {
+            string memory question = string(abi.encodePacked(title, ": ", outcomeLabels[i]));
+            uint256 marketId = marketCount;
+
+            PredictionMarket market = new PredictionMarket(
+                marketId,
+                question,
+                endTime,
+                msg.sender,
+                address(conditionalToken),
+                address(oracle)
+            );
+
+            address marketAddress = address(market);
+            markets[marketId] = marketAddress;
+            allMarkets.push(marketAddress);
+            conditionalToken.setMinter(marketAddress, true);
+
+            ids[i] = marketId;
+            marketGroupId[marketId] = groupId + 1;
+            marketCount++;
+
+            emit MarketCreated(marketId, marketAddress, question, endTime, msg.sender);
+        }
+
+        _groups[groupId] = MarketGroup({
+            title: title,
+            marketIds: ids,
+            outcomeLabels: outcomeLabels,
+            endTime: endTime,
+            creator: msg.sender
+        });
+        groupCount++;
+
+        emit MarketGroupCreated(groupId, title, ids, outcomeLabels, endTime, msg.sender);
+    }
+
+    /// @notice Get group info
+    function getGroup(uint256 groupId) external view returns (
+        string memory title,
+        uint256[] memory marketIds,
+        string[] memory outcomeLabels,
+        uint256 endTime,
+        address creator
+    ) {
+        require(groupId < groupCount, "Group does not exist");
+        MarketGroup storage g = _groups[groupId];
+        return (g.title, g.marketIds, g.outcomeLabels, g.endTime, g.creator);
+    }
+
+    /// @notice Get total number of markets
+    function getMarketCount() external view returns (uint256) {
+        return marketCount;
+    }
+
+    /// @notice Get market address by ID
+    function getMarket(uint256 marketId) external view returns (address) {
+        require(marketId < marketCount, "Market does not exist");
+        return markets[marketId];
+    }
+
+    /// @notice Get all market addresses
+    function getAllMarkets() external view returns (address[] memory) {
+        return allMarkets;
+    }
+}

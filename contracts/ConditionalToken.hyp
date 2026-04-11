@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: MIT
+pragma hyperion ^0.0.2;
+
+import "./ERC1155.hyp";
+import "./Ownable.hyp";
+
+/// @title ConditionalToken - ERC1155 tokens representing prediction market outcome positions
+contract ConditionalToken is ERC1155, Ownable {
+    /// @dev Addresses authorized to mint and burn tokens (PredictionMarket contracts)
+    mapping(address => bool) public authorizedMinters;
+
+    event TokensMinted(address indexed to, uint256 indexed tokenId, uint256 amount);
+    event TokensBurned(address indexed from, uint256 indexed tokenId, uint256 amount);
+    event MinterUpdated(address indexed minter, bool authorized);
+
+    modifier onlyMinter() {
+        require(authorizedMinters[msg.sender], "Not authorized minter");
+        _;
+    }
+
+    constructor() ERC1155("") Ownable(msg.sender) {}
+
+    /// @notice Get the YES token ID for a market
+    function yesTokenId(uint256 marketId) public pure returns (uint256) {
+        return marketId * 2;
+    }
+
+    /// @notice Get the NO token ID for a market
+    function noTokenId(uint256 marketId) public pure returns (uint256) {
+        return marketId * 2 + 1;
+    }
+
+    /// @notice Set or revoke minter authorization (only owner)
+    function setMinter(address minter, bool authorized) external onlyOwner {
+        authorizedMinters[minter] = authorized;
+        emit MinterUpdated(minter, authorized);
+    }
+
+    /// @notice Mint outcome tokens (only callable by authorized minters)
+    function mint(address to, uint256 tokenId, uint256 amount) external onlyMinter {
+        _mint(to, tokenId, amount, "");
+        emit TokensMinted(to, tokenId, amount);
+    }
+
+    /// @notice Burn outcome tokens (only callable by authorized minters)
+    function burn(address from, uint256 tokenId, uint256 amount) external onlyMinter {
+        _burn(from, tokenId, amount);
+        emit TokensBurned(from, tokenId, amount);
+    }
+}
