@@ -40,7 +40,7 @@
   // ---- Direct RPC to gqrl ----
 
   function rpcCall(method, params) {
-    var url = config.rpcUrl || "https://qrlwallet.com/api/qrl-rpc/testnet";
+    var url = config.rpcUrl || "https://rpc.pqlymarket.com/";
     return fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -88,7 +88,7 @@
       data: opts.data || "0x",
       value: opts.value || "0x0",
       type: "0x2",
-      chainId: "0x" + (config.chainId || 32382).toString(16),
+      chainId: "0x" + (config.chainId || 1337).toString(16),
     };
 
     try {
@@ -428,26 +428,67 @@
     }
   }
 
+  /**
+   * Health check strategy:
+   *
+   * The QRL extension uses a complex double-hop message pipeline:
+   *   DApp → contentScript → serviceWorker → (back to) contentScript → RPC node
+   *
+   * This pipeline is fragile (breaks on extension reload, Edge quirks, etc.).
+   * Instead of testing the full pipeline with provider.request(), we:
+   *
+   * 1. Verify the provider object exists and has request() (EIP-6963 discovery worked)
+   * 2. Verify the RPC node is reachable via direct fetch (no extension needed)
+   * 3. Quick-probe the extension pipeline (short timeout) — success = bonus, failure = OK
+   *
+   * The critical pipeline test happens naturally when requestAccounts is called.
+   */
   async function _walletHealthCheck(rawProvider) {
-    var methods = [
+    // Step 1: Verify provider has request method
+    if (!rawProvider || typeof rawProvider.request !== "function") {
+      throw new Error("Invalid wallet provider: missing request() method");
+    }
+    console.log("[Wallet] Health check step 1: provider.request exists ✓");
+
+    // Step 2: Verify RPC node is reachable directly (no extension pipeline needed)
+    try {
+      var rpcResult = await Promise.race([
+        rpcCall("qrl_chainId"),
+        new Promise(function (_, reject) {
+          setTimeout(function () { reject(new Error("RPC_TIMEOUT")); }, 5000);
+        }),
+      ]);
+      console.log("[Wallet] Health check step 2: RPC node reachable, chainId =", rpcResult, "✓");
+    } catch (rpcErr) {
+      console.warn("[Wallet] Health check step 2: RPC node unreachable:", rpcErr.message);
+      // Don't fail here — the extension might use its own configured RPC
+    }
+
+    // Step 3: Quick probe of extension pipeline (2s timeout, non-blocking)
+    // Try qrl_ then zond_ prefix — whichever responds first wins
+    var prefixes = [
       { prefix: "qrl_", method: "qrl_chainId" },
       { prefix: "zond_", method: "zond_chainId" },
     ];
-    for (var i = 0; i < methods.length; i++) {
+    for (var i = 0; i < prefixes.length; i++) {
       try {
         var result = await Promise.race([
-          rawProvider.request({ method: methods[i].method }),
+          rawProvider.request({ method: prefixes[i].method }),
           new Promise(function (_, reject) {
-            setTimeout(function () { reject(new Error("HEALTH_CHECK_TIMEOUT")); }, 5000);
+            setTimeout(function () { reject(new Error("PROBE_TIMEOUT")); }, 2000);
           }),
         ]);
-        console.log("[Wallet] Health check passed:", methods[i].method, "=", result);
-        return methods[i].prefix;
-      } catch (err) {
-        console.warn("[Wallet] Health check failed for", methods[i].method + ":", err.message || err);
+        console.log("[Wallet] Health check step 3: extension pipeline works!", prefixes[i].method, "=", result, "✓");
+        return prefixes[i].prefix;
+      } catch (probeErr) {
+        console.warn("[Wallet] Health check step 3: probe failed for", prefixes[i].method + ":", probeErr.message);
       }
     }
-    throw new Error("Wallet extension is not responding. Make sure the QRL Web3 Wallet extension is installed and enabled, then reload the page.");
+
+    // Pipeline probe failed, but provider exists. Default to qrl_ prefix
+    // and let the actual requestAccounts call be the real test.
+    console.warn("[Wallet] Health check: extension pipeline probe timed out. Proceeding with qrl_ prefix (requestAccounts will be the real test).");
+    return "qrl_";
   }
 
   function _requestAccountsWithTimeout(rawProvider, method) {
@@ -530,7 +571,7 @@
         walletProvider = walletDetail.provider;
         console.log("[Wallet] DApp connected, account:", currentAccount);
 
-        var localChainId = "0x" + (config.chainId || 32382).toString(16);
+        var localChainId = "0x" + (config.chainId || 1337).toString(16);
         try {
           var currentChainId = await walletDetail.provider.request({ method: detectedPrefix + "chainId" });
           if (currentChainId !== localChainId) {
@@ -539,7 +580,7 @@
               params: [{
                 chainId: localChainId,
                 chainName: "QRL Zond Testnet",
-                rpcUrls: [config.rpcUrl || "https://qrlwallet.com/api/qrl-rpc/testnet"],
+                rpcUrls: [config.rpcUrl || "https://rpc.pqlymarket.com/"],
                 nativeCurrency: { name: "Quanta", symbol: "QRL", decimals: 18 },
                 blockExplorerUrls: [],
                 iconUrls: [],
@@ -573,7 +614,7 @@
         walletProvider = walletDetail.provider;
         walletMethodPrefix = "eth_";
 
-        var targetChainHex = "0x" + (config.chainId || 32382).toString(16);
+        var targetChainHex = "0x" + (config.chainId || 1337).toString(16);
         try {
           var currentEthChain = await walletDetail.provider.request({ method: "eth_chainId" });
           if (currentEthChain !== targetChainHex) {

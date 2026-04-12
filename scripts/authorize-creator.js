@@ -7,14 +7,14 @@
  *
  * Environment:
  *   HEXSEED   - QRL hexseed for the deployer/owner account
- *   RPC_URL   - QRL JSON-RPC endpoint (default: https://qrlwallet.com/api/qrl-rpc/testnet)
+ *   RPC_URL   - QRL JSON-RPC endpoint (default: https://rpc.pqlymarket.com/)
  */
 
 const { Web3 } = require("@theqrl/web3");
 const fs = require("fs");
 const path = require("path");
 
-const RPC_URL = process.env.RPC_URL || "https://qrlwallet.com/api/qrl-rpc/testnet";
+const RPC_URL = process.env.RPC_URL || "https://rpc.pqlymarket.com/";
 const DEPLOYER_HEXSEED = process.env.HEXSEED;
 
 if (!DEPLOYER_HEXSEED) {

@@ -8,7 +8,7 @@ PQlyMarket is a decentralized prediction market platform (Polymarket clone) buil
 - **Web3 Library**: `@theqrl/web3` for all blockchain interactions
 - **Frontend**: Express + EJS + TypeScript + Tailwind CSS
 - **Blockchain**: QRL 2.0 Zond Testnet (Chain ID: 32382)
-  - RPC Proxy (recommended): https://qrlwallet.com/api/qrl-rpc/testnet
+  - RPC Proxy (recommended): https://rpc.pqlymarket.com/
   - Local Zond node (gqrl): http://localhost:8545
 - **Wallet**: QRL Web3 Wallet Extension
 

@@ -1436,7 +1436,11 @@ async function checkFaucetEligibility() {
       btn.classList.add("flex");
       btn.disabled = false;
       var btnText = document.getElementById("faucetBtnText");
-      if (btnText) btnText.textContent = "Claim 80k QRL";
+      if (btnText) {
+        var amountDisplay = status.claimAmount ? parseFloat(status.claimAmount).toFixed(0) : "400";
+        var amountText = amountDisplay >= 1000 ? (amountDisplay / 1000).toFixed(0) + "k" : amountDisplay;
+        btnText.textContent = "Claim " + amountText + " QRL";
+      }
     } else {
       btn.classList.add("hidden");
       btn.classList.remove("flex");
@@ -1475,7 +1479,7 @@ async function claimFromFaucet() {
     var data = await resp.json();
 
     if (data.success) {
-      PQlyWallet.showToast("80,000 QRL claimed! TX: " + data.txHash.substring(0, 10) + "...", "success");
+      PQlyWallet.showToast(data.amount + " QRL claimed! TX: " + data.txHash.substring(0, 10) + "...", "success");
       // Set cookie so button stays hidden across sessions and wallets
       document.cookie = "faucet_claimed=1; max-age=31536000; path=/; SameSite=Lax";
       // Hide the button after successful claim
@@ -1487,13 +1491,13 @@ async function claimFromFaucet() {
       PQlyWallet.refreshBalance();
     } else {
       PQlyWallet.showToast(data.error || "Claim failed", "error");
-      if (btnText) btnText.textContent = "Claim 80k QRL";
+      if (btnText) btnText.textContent = "Claim QRL";
       if (btn) btn.disabled = false;
     }
   } catch (err) {
     console.error("Faucet claim failed:", err);
     PQlyWallet.showToast("Network error", "error");
-    if (btnText) btnText.textContent = "Claim 80k QRL";
+    if (btnText) btnText.textContent = "Claim QRL";
     if (btn) btn.disabled = false;
   }
 }

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>QRL Wallet Extension Diagnostic</title>
+  <style>
+    body { font-family: monospace; max-width: 800px; margin: 40px auto; background: #111; color: #0f0; padding: 20px; }
+    .pass { color: #0f0; } .fail { color: #f00; } .warn { color: #ff0; }
+    pre { background: #222; padding: 10px; border-radius: 4px; overflow-x: auto; }
+    button { background: #333; color: #0f0; border: 1px solid #0f0; padding: 8px 16px; cursor: pointer; margin: 5px 0; }
+    button:hover { background: #0f0; color: #000; }
+    #log { white-space: pre-wrap; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <h2>QRL Wallet Extension - Diagnostic Tool</h2>
+  <div id="log"></div>
+  <br/>
+  <button onclick="runDiagnostics()">Re-run Diagnostics</button>
+  <button onclick="testRPCProxy()">Test RPC Proxy (rpc.pqlymarket.com)</button>
+  <button onclick="tryConnect()">Try Connect Wallet</button>
+
+  <script>
+    var log = document.getElementById('log');
+    function out(msg, cls) {
+      var span = document.createElement('span');
+      span.className = cls || '';
+      span.textContent = msg + '\n';
+      log.appendChild(span);
+    }
+
+    var discoveredProviders = [];
+
+    function runDiagnostics() {
+      log.innerHTML = '';
+      out('=== QRL Wallet Extension Diagnostic ===');
+      out('Timestamp: ' + new Date().toISOString());
+      out('URL: ' + window.location.href);
+      out('Protocol: ' + window.location.protocol);
+      out('');
+
+      // 1. Check window.ethereum
+      out('--- Step 1: Check window.ethereum ---');
+      if (typeof window.ethereum !== 'undefined') {
+        out('[PASS] window.ethereum exists', 'pass');
+        out('  isMetaMask: ' + window.ethereum.isMetaMask);
+      } else {
+        out('[INFO] window.ethereum is undefined (normal for QRL-only)', 'warn');
+      }
+      out('');
+
+      // 2. Check EIP-6963 discovery
+      out('--- Step 2: EIP-6963 Provider Discovery ---');
+      discoveredProviders = [];
+      
+      var listener = function(event) {
+        var d = event.detail;
+        if (d && d.info && d.provider) {
+          discoveredProviders.push(d);
+          out('[FOUND] Provider: ' + d.info.name + ' (rdns: ' + d.info.rdns + ', uuid: ' + d.info.uuid + ')', 'pass');
+        }
+      };
+      window.addEventListener('eip6963:announceProvider', listener);
+      window.dispatchEvent(new Event('eip6963:requestProvider'));
+
+      setTimeout(function() {
+        window.removeEventListener('eip6963:announceProvider', listener);
+        if (discoveredProviders.length === 0) {
+          out('[FAIL] No EIP-6963 providers discovered!', 'fail');
+          out('  This means the extension inPageScript did NOT inject.', 'fail');
+          out('  Possible causes:', 'warn');
+          out('    1. Extension not installed or not enabled', 'warn');
+          out('    2. Extension was reloaded but page was NOT refreshed', 'warn');
+          out('    3. Extension service worker crashed (check edge://extensions)', 'warn');
+        } else {
+          out('[PASS] Found ' + discoveredProviders.length + ' provider(s)', 'pass');
+        }
+        out('');
+
+        // 3. Check QRL provider specifically
+        out('--- Step 3: QRL Provider Check ---');
+        var qrlProvider = discoveredProviders.find(function(p) { return p.info.rdns === 'theqrl.org'; });
+        if (!qrlProvider) {
+          out('[FAIL] QRL Web3 Wallet provider (rdns: theqrl.org) NOT found', 'fail');
+        } else {
+          out('[PASS] QRL Web3 Wallet provider found', 'pass');
+          out('  Name: ' + qrlProvider.info.name);
+          out('  RDNS: ' + qrlProvider.info.rdns);
+          out('  UUID: ' + qrlProvider.info.uuid);
+          out('  Has request(): ' + (typeof qrlProvider.provider.request === 'function'));
+        }
+        out('');
+
+        // 4. Try qrl_chainId directly
+        out('--- Step 4: Direct qrl_chainId Test ---');
+        if (qrlProvider) {
+          out('Sending qrl_chainId request (timeout: 10s)...');
+          Promise.race([
+            qrlProvider.provider.request({ method: 'qrl_chainId' }),
+            new Promise(function(_, reject) {
+              setTimeout(function() { reject(new Error('TIMEOUT_10S')); }, 10000);
+            })
+          ]).then(function(result) {
+            out('[PASS] qrl_chainId returned: ' + result, 'pass');
+            out('  Chain ID (decimal): ' + parseInt(result, 16));
+          }).catch(function(err) {
+            out('[FAIL] qrl_chainId error: ' + (err.message || err), 'fail');
+            if (err.message === 'TIMEOUT_10S') {
+              out('  The provider.request() timed out.', 'fail');
+              out('  This means EIP-6963 works but the message pipeline is broken.', 'fail');
+              out('  Content Script <-> Service Worker stream is likely dead.', 'warn');
+              out('  FIX: Reload extension in edge://extensions, then HARD REFRESH this page (Ctrl+Shift+R).', 'warn');
+            }
+          });
+        } else {
+          out('[SKIP] No QRL provider to test', 'warn');
+        }
+      }, 1500);
+    }
+
+    function testRPCProxy() {
+      out('');
+      out('--- RPC Proxy Test (https://rpc.pqlymarket.com) ---');
+      fetch('https://rpc.pqlymarket.com', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', method: 'qrl_chainId', params: [], id: 1 })
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        out('[PASS] RPC Proxy responded: ' + JSON.stringify(data), 'pass');
+      }).catch(function(err) {
+        out('[FAIL] RPC Proxy error: ' + err.message, 'fail');
+      });
+    }
+
+    function tryConnect() {
+      out('');
+      out('--- Manual Connection Attempt ---');
+      var qrl = discoveredProviders.find(function(p) { return p.info.rdns === 'theqrl.org'; });
+      if (!qrl) {
+        out('[FAIL] No QRL provider to connect', 'fail');
+        return;
+      }
+      out('Sending qrl_requestAccounts...');
+      qrl.provider.request({ method: 'qrl_requestAccounts' }).then(function(accounts) {
+        out('[PASS] Accounts: ' + JSON.stringify(accounts), 'pass');
+      }).catch(function(err) {
+        out('[FAIL] ' + (err.message || err), 'fail');
+      });
+    }
+
+    // Auto-run on page load
+    setTimeout(runDiagnostics, 500);
+  </script>
+</body>
+</html>

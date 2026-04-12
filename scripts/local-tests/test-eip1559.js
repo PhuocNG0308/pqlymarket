@@ -1,5 +1,5 @@
 const { Web3 } = require('@theqrl/web3');
-const web3 = new Web3(process.env.RPC_URL || "https://qrlwallet.com/api/qrl-rpc/testnet");
+const web3 = new Web3(process.env.RPC_URL || "https://rpc.pqlymarket.com/");
 
 (async () => {
     const hexseed = "0xcf54ce1dbaa39f1e80fb0c03a9cf88968054fd5f6ea35d1528809f942d4ac4a9b09d735d25e322b0051f97eb5c529ab5";

@@ -11,16 +11,17 @@
  *
  * Environment:
  *   HEXSEED   - Override the hexseed from deployment.json (optional)
- *   RPC_URL   - QRL JSON-RPC endpoint (default: https://qrlwallet.com/api/qrl-rpc/testnet)
+ *   RPC_URL   - QRL JSON-RPC endpoint (default: https://rpc.pqlymarket.com/)
  */
 
+require("dotenv").config();
 const { Web3 } = require("@theqrl/web3");
 const fs = require("fs");
 const path = require("path");
 
-const RPC_URL = process.env.RPC_URL || "https://qrlwallet.com/api/qrl-rpc/testnet";
+const RPC_URL = process.env.RPC_URL || "https://rpc.pqlymarket.com/";
 
-let CHAIN_ID = 32382;
+let CHAIN_ID = 1337;
 
 function loadDeployment() {
   const deployPath = path.join(__dirname, "..", "deployment.json");

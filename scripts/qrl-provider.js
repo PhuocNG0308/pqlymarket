@@ -17,7 +17,7 @@
  * Usage:
  *   const { Web3 } = require("@theqrl/web3");
  *   const { QrlProvider } = require("./qrl-provider");
- *   const web3 = new Web3(new QrlProvider(process.env.RPC_URL || "https://qrlwallet.com/api/qrl-rpc/testnet"));
+ *   const web3 = new Web3(new QrlProvider(process.env.RPC_URL || "https://rpc.pqlymarket.com/"));
  */
 
 const http = require("http");

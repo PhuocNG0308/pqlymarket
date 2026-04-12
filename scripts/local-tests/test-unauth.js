@@ -1,5 +1,5 @@
 const { Web3 } = require('@theqrl/web3');
-const web3 = new Web3(process.env.RPC_URL || "https://qrlwallet.com/api/qrl-rpc/testnet");
+const web3 = new Web3(process.env.RPC_URL || "https://rpc.pqlymarket.com/");
 
 (async () => {
     try {

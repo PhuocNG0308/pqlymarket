@@ -10,15 +10,16 @@
  *
  * Environment:
  *   HEXSEED   - QRL hexseed for the deployer account (48 bytes)
- *   RPC_URL   - QRL JSON-RPC endpoint (default: https://qrlwallet.com/api/qrl-rpc/testnet)
+ *   RPC_URL   - QRL JSON-RPC endpoint (default: https://rpc.pqlymarket.com/)
  */
 
+require("dotenv").config();
 const { Web3 } = require("@theqrl/web3");
 const fs = require("fs");
 const path = require("path");
 
 // ── Configuration ────────────────────────────────────────────
-const RPC_URL = process.env.RPC_URL || "https://qrlwallet.com/api/qrl-rpc/testnet";
+const RPC_URL = process.env.RPC_URL || "https://rpc.pqlymarket.com/";
 const DEPLOYER_HEXSEED = process.env.HEXSEED;
 
 if (!DEPLOYER_HEXSEED) {
@@ -37,7 +38,7 @@ const FAUCET_INITIAL_FUND = Web3.utils.toPlanck("40000", "quanta");
 // ── Helpers ──────────────────────────────────────────────────
 
 // Detected at runtime in main(), used by deploy/send helpers
-let CHAIN_ID = 32382;
+let CHAIN_ID = 1337;
 
 /**
  * Load a Hyperion-compiled contract artifact from artifacts/.

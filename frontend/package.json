@@ -8,6 +8,7 @@
     "build:ts": "tsc",
     "build": "npm run build:ts && npm run build:css",
     "start": "node dist/server.js",
+    "public": "./start-public.sh",
     "lint": "eslint src/"
   },
   "dependencies": {

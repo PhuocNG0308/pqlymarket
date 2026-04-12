@@ -1,0 +1,19 @@
+# Ngrok configuration for PQlyMarket Frontend
+# Static domain: twine-tubeless-vigorous.ngrok-free.dev
+#
+# Usage:
+#   ngrok start --config ngrok.yml pqlymarket
+#
+# Custom domain setup (requires ngrok paid plan + DNS CNAME):
+#   1. Go to https://dashboard.ngrok.com/domains
+#   2. Add your custom domain (e.g., app.pqlymarket.com)
+#   3. Create a DNS CNAME record pointing your domain to your ngrok domain
+#   4. Replace the 'url' below with your custom domain
+#
+version: "3"
+tunnels:
+  pqlymarket:
+    addr: 3000
+    proto: http
+    url: https://twine-tubeless-vigorous.ngrok-free.dev
+    inspect: true

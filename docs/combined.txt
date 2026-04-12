@@ -1,0 +1,893 @@
+﻿# Smart Contract trÃªn QRL 2.0 Zond
+
+> Sources:
+> - https://github.com/theQRL/qrl-contract-example (official example)
+> - https://github.com/theQRL/hyperion (Hyperion compiler)
+> - https://test-zond.theqrl.org/testnet/usage/contract-example
+
+## Overview
+
+QRL 2.0 tÆ°Æ¡ng thÃ­ch EVM, cho phÃ©p deploy smart contracts lÃªn Zond Virtual Machine (ZVM).
+
+### Hai cÃ¡ch phÃ¡t triá»ƒn Smart Contract:
+
+1. **Hyperion (QRL native)** â€” **PQlyMarket sá»­ dá»¥ng cÃ¡ch nÃ y**:
+   - Sá»­ dá»¥ng `pragma hyperion ^0.0.2;`
+   - File extension `.hyp`
+   - Compiler: `@theqrl/hypc` (npm package)
+   - Bytecode output: `zvm.bytecode.object`
+   - DÃ¹ng vá»›i `@theqrl/web3` library
+   - Source code táº¡i `contracts/`
+   - Compile: `npm run compile` â†’ output táº¡i `artifacts/`
+
+2. **Hardhat + Solidity (EVM compatible)** â€” khÃ´ng sá»­ dá»¥ng:
+   - PQlyMarket Ä‘Ã£ chuyá»ƒn hoÃ n toÃ n sang Hyperion
+   - Hardhat khÃ´ng cÃ²n Ä‘Æ°á»£c sá»­ dá»¥ng
+
+## Hyperion Compiler
+
+Hyperion lÃ  ngÃ´n ngá»¯ láº­p trÃ¬nh smart contract cá»§a QRL, fork tá»« Solidity v0.8.23:
+
+- **Repo**: https://github.com/theQRL/hyperion
+- **npm**: `@theqrl/hypc@^0.0.2`
+- **Language**: Statically-typed, curly-braces, contract-oriented
+- **Target**: Zond Virtual Machine (ZVM)
+- **pragma**: `pragma hyperion ^0.0.2;`
+
+```hyperion
+// SPDX-License-Identifier: MIT
+pragma hyperion ^0.0.2;
+
+contract HelloWorld {
+    function helloWorld() external pure returns (string memory) {
+        return "Hello, World!";
+    }
+}
+```
+
+### KhÃ¡c biá»‡t so vá»›i Solidity
+
+| Feature | Solidity | Hyperion |
+|---------|----------|----------|
+| Pragma | `pragma solidity ^0.8.27;` | `pragma hyperion ^0.0.2;` |
+| File extension | `.sol` | `.hyp` |
+| Compiler | `solc` | `@theqrl/hypc` |
+| Compiler input language | `"Solidity"` | `"Hyperion"` |
+| Bytecode output | `evm.bytecode.object` | `zvm.bytecode.object` |
+| Import paths | `import "./File.sol";` | `import "./File.hyp";` |
+| OpenZeppelin | CÃ³ sáºµn | Pháº£i implement tá»« Ä‘áº§u |
+| Syntax | â€” | Giá»‘ng há»‡t Solidity |
+
+## PQlyMarket Hyperion Contracts
+
+PQlyMarket sá»­ dá»¥ng Hyperion cho toÃ n bá»™ contracts táº¡i `contracts/`:
+
+### Base Libraries (thay tháº¿ OpenZeppelin)
+- `Ownable.hyp` â€” Access control (owner pattern)
+- `ReentrancyGuard.hyp` â€” Chá»‘ng reentrancy attack
+- `ERC20.hyp` + `IERC20.hyp` â€” Token standard
+- `ERC1155.hyp` + `IERC1155.hyp` + `IERC1155Receiver.hyp` + `IERC165.hyp` â€” Multi-token standard
+
+### Application Contracts
+- `ConditionalToken.hyp` â€” ERC1155 YES/NO outcome tokens
+- `PqlToken.hyp` â€” ERC20 governance token (PQL)
+- `Oracle.hyp` â€” Admin-controlled oracle
+- `GovernanceOracle.hyp` â€” Decentralized voting oracle
+- `PredictionMarket.hyp` â€” AMM-based binary market
+- `MarketFactory.hyp` â€” Factory + market groups
+- `Faucet.hyp` â€” Testnet QRL faucet
+- `IOracle.hyp` â€” Oracle interface
+
+### Compile & Deploy
+
+```bash
+# Compile Hyperion contracts
+npm run compile
+
+# Deploy lên Zond testnet (via RPC Proxy)
+HEXSEED=0x... npm run deploy
+
+# Hoặc chỉ định RPC URL rõ ràng
+HEXSEED=0x... RPC_URL=https://rpc.pqlymarket.com/ npm run deploy
+```
+
+## Official QRL Contract Example (Hyperion approach)
+
+### Step 1: CÃ i Ä‘áº·t & Cháº¡y Zond Node
+Theo hÆ°á»›ng dáº«n táº¡i [02-windows-install.md](./02-windows-install.md) vÃ  [03-running-windows.md](./03-running-windows.md)
+
+### Step 2: Táº¡o Wallet & Láº¥y Test QRL
+- Sá»­ dá»¥ng QRL Web3 Wallet Extension: https://github.com/theQRL/qrl-web3-wallet
+- Láº¥y test QRL qua Discord #testnet channel: https://theqrl.org/discord
+- Tool extract hexseed: https://github.com/theQRL/hexseed-from-address
+  ```bash
+  npm i -g @theqrl/hexseed-from-address
+  hexseed-from-address -p SecretPassword123 -a 0x<your_address> -d ~/gqrldata
+  ```
+
+### Step 3: Cáº¥u hÃ¬nh config.json
+```json
+{
+  "provider": "https://rpc.pqlymarket.com/",
+  "hexseed": "0x<your_hexseed>",
+  "contract_address": "contract_address_here",
+  "tx_required_confirmations": 12
+}
+```
+
+### Step 4: Clone & Deploy
+```bash
+git clone https://github.com/theQRL/qrl-contract-example.git
+cd qrl-contract-example
+nvm use
+npm install
+node 1-deploy.js
+```
+
+Káº¿t quáº£ sáº½ cÃ³ `contractAddress` dáº¡ng `Zecf54b758c2793466FD...` (prefix `Z`).
+
+### Step 5: Interact
+```bash
+node 2-onchain-call.js    # On-chain call (costs gas)
+node 3-offchain-call.js   # Off-chain call (free, read-only)
+```
+
+## Contract Example Structure (qrl-contract-example)
+```
+qrl-contract-example/
+â”œâ”€â”€ contracts/           # Smart contracts (Hyperion syntax)
+â”œâ”€â”€ config.json          # Node connection & wallet config
+â”œâ”€â”€ contract-compiler.js # Compile contracts using solc
+â”œâ”€â”€ 1-deploy.js          # Deploy contract to Zond chain
+â”œâ”€â”€ 2-onchain-call.js    # Make on-chain transaction
+â”œâ”€â”€ 3-offchain-call.js   # Make off-chain (read) call
+â”œâ”€â”€ getcode.js           # Get deployed bytecode
+â””â”€â”€ package.json         # Dependencies (solc, web3-eth-abi, etc.)
+```
+
+## Key Dependencies (qrl-contract-example / PQlyMarket Hyperion)
+- `@theqrl/hypc` â€” Hyperion compiler (npm, replaces solc)
+- `@theqrl/web3` â€” QRL Web3 library for deployment & interaction
+- Node.js 18+
+
+> PQlyMarket sá»­ dá»¥ng `@theqrl/hypc` trá»±c tiáº¿p qua `scripts/hyp-compile.js`,
+> khÃ´ng cáº§n build Hyperion compiler from source.
+
+## PQlyMarket Build & Deploy
+
+```bash
+# Compile Hyperion contracts (.hyp â†’ artifacts/)
+npm run compile
+
+# Deploy to Zond testnet (via RPC Proxy — mặc định)
+HEXSEED=0x... npm run deploy
+
+# Hoặc chỉ định RPC URL
+HEXSEED=0x... RPC_URL=https://rpc.pqlymarket.com/ npm run deploy
+```
+
+Xem chi tiáº¿t táº¡i [deployment.json](../deployment.json).
+
+## So sÃ¡nh Hyperion vs Solidity
+
+| Feature | Hyperion (PQlyMarket) | Solidity |
+|---------|----------------------|----------|
+| Compiler | `@theqrl/hypc` (`pragma hyperion ^0.0.2;`) | solc (`pragma solidity`) |
+| File ext | `.hyp` | `.sol` |
+| Source dir | `contracts/` | â€” |
+| Artifact dir | `artifacts/` | â€” |
+| Compile cmd | `npm run compile` | â€” |
+| Deploy cmd | `npm run deploy` | â€” |
+| Web3 | `@theqrl/web3` | ethers.js / web3.js |
+| Addresses | `Z` prefix | `0x` prefix |
+| OpenZeppelin | Inline implementations | npm package |
+| Network | QRL Zond testnet v2 | Ethereum |
+
+# PQlyMarket - Prediction Market Architecture (Polymarket Clone trên QRL 2.0)
+
+## Tổng quan hệ thống
+
+PQlyMarket là nền tảng prediction market phi tập trung chạy trên QRL 2.0 Zond Testnet, cho phép người dùng đặt cược vào kết quả của các sự kiện.
+
+## Kiến trúc
+
+```
+┌─────────────────────────────────────────────┐
+│                  Frontend                    │
+│         (Next.js / React + TypeScript)       │
+│    Kết nối QRL Web3 Wallet Extension         │
+└──────────────────┬──────────────────────────┘
+                   │ @theqrl/web3
+┌──────────────────▼──────────────────────────┐
+│              Smart Contracts                 │
+│           (Solidity / EVM Compatible)        │
+│                                              │
+│  ┌─────────────────┐  ┌──────────────────┐  │
+│  │ MarketFactory    │  │ ConditionalToken │  │
+│  │ (Tạo markets)   │  │ (ERC1155 tokens) │  │
+│  └─────────────────┘  └──────────────────┘  │
+│  ┌─────────────────┐  ┌──────────────────┐  │
+│  │ Market           │  │ Oracle           │  │
+│  │ (Mua/bán shares)│  │ (Resolve kết quả)│  │
+│  └─────────────────┘  └──────────────────┘  │
+└──────────────────┬──────────────────────────┘
+                   │ JSON-RPC (qrl_ prefix)
+┌──────────────────▼──────────────────────────┐
+│           QRL 2.0 Zond Testnet               │
+│    gqrl (Execution) + Qrysm (Consensus)     │
+│    Chain ID: 32382 | RPC Proxy: qrlwallet.com     │
+└──────────────────────────────────────────────┘
+```
+
+## Smart Contracts cần xây dựng
+
+### 1. MarketFactory.sol
+- Tạo prediction markets mới
+- Lưu danh sách tất cả markets
+- Emit events khi market được tạo
+
+### 2. PredictionMarket.sol
+- Core logic cho mỗi market
+- Mua/bán outcome shares (YES/NO)
+- AMM (Automated Market Maker) đơn giản
+- Resolve market khi kết quả được xác định
+- Claim winnings
+
+### 3. ConditionalToken.sol (ERC1155)
+- Token đại diện cho các outcome positions
+- Mỗi market có YES token và NO token
+- Transferable giữa users
+
+### 4. Oracle.sol
+- Oracle đơn giản (admin-controlled cho MVP)
+- Resolve kết quả sự kiện
+- Có thể nâng cấp lên decentralized oracle sau
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Smart Contracts | Solidity ^0.8.27 (Hardhat local) / Hyperion (Zond production) |
+| Contract Tooling | Hardhat 2.22+ (compile, test, deploy) |
+| Contract Standards | OpenZeppelin v5 (ERC1155, Ownable, ReentrancyGuard) |
+| EVM Version | Cancun (required for OZ v5 mcopy) |
+| Web3 (Frontend) | ethers.js v6 (local dev) / `@theqrl/web3` (Zond production) |
+| Frontend | Next.js 16+ / React 19+ / TypeScript |
+| Styling | Tailwind CSS |
+| Wallet | MetaMask (local dev) / QRL Web3 Wallet Extension (Zond) |
+| Testing | Hardhat local network (Chain ID 32382) |
+| QRL Node | gqrl (execution) + Qrysm beacon-chain (consensus) |
+
+## Flow chính
+
+### Tạo Market
+1. Admin gọi `MarketFactory.createMarket(question, outcomes, endTime)`
+2. Factory deploy `PredictionMarket` contract mới
+3. Frontend hiển thị market mới
+
+### Đặt cược (Buy Shares)
+1. User kết nối QRL Web3 Wallet
+2. User chọn market → chọn outcome (YES/NO)
+3. User approve QRL token → gọi `market.buy(outcome, amount)`
+4. Market mint ERC1155 tokens cho user
+5. Giá tự động điều chỉnh theo AMM curve
+
+### Resolve Market
+1. Oracle/Admin gọi `market.resolve(winningOutcome)` sau khi sự kiện kết thúc
+2. Market chuyển sang trạng thái RESOLVED
+
+### Claim Winnings
+1. User giữ winning outcome tokens
+2. Gọi `market.claim()` để nhận QRL tokens
+3. Shares được burn, QRL được chuyển
+
+## Cấu trúc thư mục dự kiến
+
+```
+PQlyMarket/
+├── contracts/                # Solidity smart contracts
+│   ├── MarketFactory.sol
+│   ├── PredictionMarket.sol
+│   ├── ConditionalToken.sol
+│   └── Oracle.sol
+├── scripts/                  # Deploy & interaction scripts
+│   ├── deploy.js
+│   └── interact.js
+├── test/                     # Contract tests
+│   ├── MarketFactory.test.js
+│   └── PredictionMarket.test.js
+├── frontend/                 # Next.js frontend
+│   ├── src/
+│   │   ├── app/
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   ├── lib/
+│   │   └── types/
+│   ├── package.json
+│   └── next.config.js
+├── docs/                     # Documentation (this folder)
+├── hardhat.config.js         # Hardhat configuration
+├── package.json
+└── .env.example
+```
+
+﻿# PQlyMarket - Development Roadmap
+
+## Phase 1: Foundation Setup âœ…
+- [x] Setup project vá»›i QRL Zond network config (Chain ID 32382)
+- [x] Ban Ä‘áº§u dÃ¹ng Hardhat + Solidity, sau Ä‘Ã³ chuyá»ƒn hoÃ n toÃ n sang Hyperion
+
+## Phase 2: Smart Contracts âœ…
+- [x] Viáº¿t `ConditionalToken.hyp` (ERC1155 â€” YES/NO tokens)
+- [x] Viáº¿t `Oracle.hyp` (admin-controlled oracle)
+- [x] Viáº¿t `PredictionMarket.hyp` (core market logic + constant-product AMM)
+- [x] Viáº¿t `MarketFactory.hyp` (factory pattern + market groups)
+- [x] Viáº¿t `PqlToken.hyp` (ERC20 governance token)
+- [x] Viáº¿t `GovernanceOracle.hyp` (decentralized voting oracle)
+- [x] Viáº¿t `Faucet.hyp` (testnet QRL faucet)
+- [x] Implement base libraries thay tháº¿ OpenZeppelin: Ownable, ReentrancyGuard, ERC20, ERC1155
+- [x] Compile thÃ nh cÃ´ng 16 contracts (9 deployable)
+
+## Phase 3: Frontend MVP âœ…
+- [x] Setup Next.js 16+ vá»›i TypeScript + Tailwind CSS
+- [x] WalletProvider context + useWallet hook (ethers.js v6)
+- [x] useMarkets hook (load, create, buy, resolve, claim)
+- [x] WalletButton, CreateMarketForm, MarketList components
+- [x] Trang chá»§: Header + Create Market + Active Markets
+
+## Phase 4: QRL Zond Integration âœ…
+- [x] Setup Docker local PoS network (gqrl v0.3.0 + qrysm beacon + validator)
+- [x] Genesis generator with rebuilt qrysmctl from source (SSZ compatibility)
+- [x] Block production verified â€” 12s slot time, 64 validators, blocks producing
+- [x] Migrate hoÃ n toÃ n sang Hyperion compiler (`pragma hyperion ^0.0.2;`)
+  - [x] XÃ³a Solidity/Hardhat, chá»‰ dÃ¹ng Hyperion
+  - [x] `npm run compile` â†’ `artifacts/` (Hyperion only)
+  - [x] `npm run deploy` â†’ QRL Zond deploy (@theqrl/web3)
+  - [x] Táº¥t cáº£ 16 contracts compiled thÃ nh cÃ´ng, 9 deployable
+- [x] Deploy script `deploy-qrl.js` load artifacts tá»« `artifacts/`
+- [ ] Test deploy lÃªn Zond testnet v2 thá»±c táº¿
+- [ ] TÃ­ch há»£p QRL Web3 Wallet Extension thá»±c táº¿
+- [ ] TÃ­ch há»£p `@theqrl/web3` thay tháº¿ ethers.js trÃªn frontend
+
+## Phase 5: Enhancement
+- [ ] Cáº£i thiá»‡n AMM (LMSR hoáº·c CPMM nÃ¢ng cao)
+- [ ] ThÃªm market categories & search
+- [ ] Trang portfolio: Xem positions cá»§a user
+- [ ] Admin panel riÃªng: Táº¡o market + resolve
+- [ ] Mobile responsive UI
+- [ ] Order book hoáº·c limit orders
+
+## Phase 6: Production Ready
+- [ ] Security audit cho smart contracts
+- [ ] Gas optimization
+- [ ] Monitoring & analytics
+- [ ] Deploy lÃªn QRL 2.0 Mainnet (khi available)
+
+## LÆ°u Ã½ quan trá»ng khi phÃ¡t triá»ƒn
+
+1. **Hyperion only**: PQlyMarket sá»­ dá»¥ng Hyperion compiler (`pragma hyperion ^0.0.2;`)
+   - `contracts/*.hyp` â€” Hyperion smart contracts
+   - `npm run compile` â†’ `artifacts/`
+   - `npm run deploy` â†’ QRL Zond deploy (@theqrl/web3)
+2. **Web3 Library**: Sá»­ dá»¥ng `@theqrl/web3` (khÃ´ng dÃ¹ng ethers.js/Hardhat)
+3. **RPC Methods**: Prefix `qrl_` thay vÃ¬ `eth_` (vÃ­ dá»¥: `qrl_sendTransaction`)
+4. **Chain ID**: `32382` cho testnet
+5. **Addresses**: QRL Zond dÃ¹ng prefix `Z` thay vÃ¬ `0x`
+6. **Binaries cáº§n thiáº¿t**: `gqrl` (execution, go-qrl v0.3.0) + `beacon-chain` (consensus) + `validator`
+7. **Docker images má»›i**: `qrledger/go-qrl:v0.3.0` (thay tháº¿ `qrledger/go-zond`), qrysm build from source
+8. **Test QRL**: Xin qua Discord #testnet channel: https://theqrl.org/discord
+9. **Hyperion compiler**: `@theqrl/hypc` npm package â€” khÃ´ng cáº§n build from source
+
+﻿# HÆ°á»›ng dáº«n RPC Prefix â€” QRL Zond
+
+> TÃ i liá»‡u nÃ y ghi láº¡i cÃ¡ch sá»­ dá»¥ng RPC method prefix trong PQlyMarket.
+> Cáº­p nháº­t láº§n cuá»‘i: 2026-05
+
+## TÃ³m táº¯t
+
+Táº¥t cáº£ cÃ¡c thÃ nh pháº§n hiá»‡n táº¡i Ä‘á»u sá»­ dá»¥ng prefix **`qrl_*`** vÃ  Ä‘á»‹a chá»‰ **Q-prefix**. KhÃ´ng cáº§n proxy/translation giá»¯a wallet â†” @theqrl/web3 â†” gqrl.
+
+## Báº£ng tÃ³m táº¯t prefix
+
+| ThÃ nh pháº§n | PhiÃªn báº£n | RPC Prefix | Address Prefix |
+|---|---|---|---|
+| gqrl (go-qrl) | v0.3.0 | `qrl_*` | Q-prefix |
+| @theqrl/web3 | v0.4.0 | `qrl_*` (native) | Q-prefix |
+| QRL Web3 Wallet Extension | main branch | `qrl_*` (DApp-facing) | Q-prefix |
+| QRL Web3 Wallet Extension | v0.1.1 (legacy) | `zond_*` | Z-prefix |
+| ethers.js v6 | 6.13.5 | `eth_*` (cáº§n proxy) | 0x-prefix |
+| Public testnet | â€” | `qrl_*` | Q-prefix |
+
+## Kiáº¿n trÃºc hiá»‡n táº¡i â€” KHÃ”NG Cáº¦N PROXY giá»¯a wallet â†” node
+
+```
+QRL Web3 Wallet Extension (main branch)
+  â†’ qrl_sendTransaction (DApp-facing)
+  â†’ internal: @theqrl/web3 v0.4.0 â†’ qrl_sendRawTransaction â†’ gqrl
+       â†‘ táº¥t cáº£ Ä‘á»u qrl_* â€” khÃ´ng cáº§n translation
+```
+
+Chá»‰ cáº§n proxy cho ethers.js (eth_* â†’ qrl_*):
+
+### Server-side (Node.js / ethers.js)
+```
+ethers.js â†’ QrlJsonRpcProvider â†’ gqrl
+  eth_call â†’ qrl_call
+  0x-prefix â†’ Q-prefix
+```
+File: `frontend/src/services/qrl-provider.ts`
+
+### Client-side (Browser / ethers.js BrowserProvider)
+```
+ethers.js BrowserProvider â†’ createZondProxyProvider â†’ gqrl / wallet extension
+
+ÄÆ°á»ng Ä‘i 1: LOCAL_METHODS (read-only, gá»­i trá»±c tiáº¿p tá»›i gqrl)
+  eth_blockNumber â†’ qrl_blockNumber (rpcCall trá»±c tiáº¿p)
+  eth_call â†’ qrl_call (rpcCall trá»±c tiáº¿p)
+  eth_getBalance â†’ qrl_getBalance (rpcCall trá»±c tiáº¿p)
+  ...
+
+ÄÆ°á»ng Ä‘i 2: Write methods (gá»­i qua wallet extension)
+  eth_sendTransaction â†’ populateTransactionFields() â†’ qrl_sendTransaction (wallet ext)
+```
+File: `frontend/public/js/wallet.js`
+
+### Deploy script (@theqrl/web3 v0.4.0)
+```
+@theqrl/web3 v0.4.0 â†’ gqrl (trá»±c tiáº¿p, khÃ´ng cáº§n proxy)
+  web3.qrl.Contract â†’ qrl_* native â†’ gqrl
+```
+File: `scripts/deploy-qrl.js`
+
+## Backward Compatibility (Legacy v0.1.1 Wallet)
+
+`wallet.js` váº«n há»— trá»£ wallet v0.1.1 (zond_*):
+1. Thá»­ `qrl_requestAccounts` trÆ°á»›c (wallet má»›i nháº¥t)
+2. Náº¿u tháº¥t báº¡i â†’ fallback `zond_requestAccounts` (v0.1.1)
+3. `walletMethodPrefix` Ä‘Æ°á»£c set tÆ°Æ¡ng á»©ng ("qrl_" hoáº·c "zond_")
+
+## LÆ°u Ã½ quan trá»ng
+
+1. **gqrl v0.3.0 CHá»ˆ hiá»ƒu `qrl_*`** â€” `zond_*` sáº½ tráº£ vá» lá»—i `-32601`
+2. **@theqrl/web3 v0.4.0 sá»­ dá»¥ng `web3.qrl.*`** â€” property `web3.zond` khÃ´ng cÃ²n tá»“n táº¡i
+3. **Wallet extension (main branch) chá»‰ cháº¥p nháº­n `qrl_*`** â€” `zond_*` bá»‹ cháº·n bá»Ÿi `blockUnSupportedMethodsMiddleware`
+4. **KhÃ´ng cáº§n engine-proxy.js hay rpc-proxy.js** ná»¯a â€” táº¥t cáº£ Ä‘á»u native `qrl_*`
+
+## PhiÃªn báº£n cÅ© (Lá»‹ch sá»­)
+
+| ThÃ nh pháº§n | PhiÃªn báº£n cÅ© | Prefix cÅ© |
+|---|---|---|
+| go-zond (gzond) | v0.2.3 | `zond_*`, Z-prefix |
+| @theqrl/web3 | v0.3.3 | `zond_*`, Z-prefix, `web3.zond.*` |
+| QRL Wallet | v0.1.1 | `zond_*`, Z-prefix |
+
+﻿# QRL Web3 Wallet Extension â€” Internals Reference
+
+> Source: https://github.com/theQRL/qrl-web3-wallet (main branch, fetched 2026-05)
+> Current main branch â€” uses `qrl_*` prefix, `@theqrl/web3@^0.4.0`, Q-prefix addresses
+> Legacy v0.1.1 (Feb 26 2025) â€” used `zond_*` prefix (deprecated)
+
+## Architecture Overview
+
+```
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”    EIP-1193 request()     â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚  DApp page   â”‚ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â†’â”‚  inPageScript.ts   â”‚
+â”‚ (ethers.js)  â”‚                           â”‚  (injected into    â”‚
+â”‚              â”‚                           â”‚   MAIN world)      â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜                           â””â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+                                                    â”‚ PostMessage
+                                                    â–¼
+                                           â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+                                           â”‚ contentScript.ts   â”‚
+                                           â”‚ (content script)   â”‚
+                                           â””â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+                                                â”‚      â”‚
+                              Unrestricted      â”‚      â”‚  Restricted
+                              methods           â”‚      â”‚  methods
+                              (via message)     â”‚      â”‚  (via port)
+                                                â–¼      â–¼
+                                           â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+                                           â”‚ serviceWorker.ts   â”‚
+                                           â”‚ (background)       â”‚
+                                           â”‚                    â”‚
+                                           â”‚ Middleware Pipeline:â”‚
+                                           â”‚ 1. blockUnsupportedâ”‚
+                                           â”‚ 2. appendSenderDataâ”‚
+                                           â”‚ 3. unrestricted    â”‚
+                                           â”‚ 4. restricted      â”‚
+                                           â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+                                                    â”‚
+                                            â”Œâ”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”
+                                            â”‚               â”‚
+                              Unrestricted  â–¼   Restricted  â–¼
+                         â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+                         â”‚contentScript â”‚  â”‚  Wallet UI Popup     â”‚
+                         â”‚uses @theqrl/ â”‚  â”‚  (user approval)     â”‚
+                         â”‚web3 v0.4.0   â”‚  â”‚  Signs + broadcasts  â”‚
+                         â”‚internally    â”‚  â”‚  via @theqrl/web3    â”‚
+                         â””â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”˜  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+                                â”‚                     â”‚
+                                â–¼                     â–¼
+                         â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+                         â”‚       gqrl / go-qrl node        â”‚
+                         â”‚  (qrl_* JSON-RPC prefix natively â”‚
+                         â”‚   via @theqrl/web3 v0.4.0)       â”‚
+                         â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+```
+
+**Key insight**: The wallet does NOT forward `qrl_*` methods directly to the node.
+The contentScript creates its own `@theqrl/web3` instance pointed at the active chain's RPC URL, and calls the node using web3's built-in methods (which use `qrl_*` natively in v0.4.0).
+
+## Provider Info (EIP-6963)
+
+```typescript
+// src/scripts/constants/streamConstants.ts
+QRL_WEB3_WALLET_PROVIDER_INFO = {
+  NAME: "QRLWeb3Wallet",
+  RDNS: "theqrl.org",
+  ICON: "data:image/svg+xml;base64,...",
+}
+```
+
+## Blockchain Configuration
+
+```typescript
+// src/configuration/qrlBlockchainConfig.ts
+QRL_MAINNET = { chainId: "0x1",   chainName: "Zond Mainnet", rpcUrls: ["http://127.0.0.1:8545"] }
+QRL_TESTNET = { chainId: "0x7e7e", chainName: "Zond Testnet", rpcUrls: ["https://rpc.pqlymarket.com/"] }
+
+DEFAULT_BLOCKCHAIN = QRL_BLOCKCHAINS[1]  // Testnet is default
+```
+
+Custom chains can be added via `wallet_addQRLChain`. They are stored in browser.storage.local.
+
+## Method Prefixes â€” Version Differences
+
+| Context | v0.1.1 (legacy) | main branch (current) |
+|---------|-------------------|------------------------|
+| DApp â†’ Wallet | `zond_*` | `qrl_*` |
+| Wallet â†’ Node (internal) | `zond_*` (via @theqrl/web3 v0.3.x) | `qrl_*` (via @theqrl/web3 v0.4.0) |
+| Chain management | `wallet_addQRLChain` | `wallet_addQRLChain` |
+
+**Note**: With @theqrl/web3 v0.4.0, both DApp-facing methods AND internal node communication use `qrl_*`. No translation needed anywhere in the stack.
+
+## Supported Methods (latest main branch)
+
+### Restricted Methods (require user popup approval)
+
+```
+qrl_requestAccounts      â€” Connect DApp, authorize account access
+qrl_sendTransaction      â€” Sign + broadcast transaction
+qrl_signTypedData_v4     â€” EIP-712 typed data signing
+personal_sign            â€” Personal message signing
+wallet_addQRLChain       â€” Add custom blockchain
+wallet_switchQRLChain    â€” Switch active blockchain
+wallet_watchAsset        â€” Add token to wallet UI
+wallet_requestPermissionsâ€” Request DApp permissions
+wallet_sendCalls         â€” Batch transactions (EIP-5792)
+wallet_getCapabilities   â€” Check wallet capabilities
+```
+
+### Unrestricted Methods (no popup, handled by contentScript)
+
+```
+qrl_accounts             â€” Get connected accounts (requires prior DApp connection)
+qrl_call                 â€” Read-only contract call
+qrl_chainId              â€” Get active chain ID
+qrl_estimateGas          â€” Estimate gas
+qrl_getBalance           â€” Get QRL balance
+qrl_getCode              â€” Get contract bytecode
+qrl_getBlockByNumber     â€” Get block data
+qrl_getBlockByHash       â€” Get block by hash
+qrl_getTransactionReceiptâ€” Get tx receipt
+qrl_getTransactionByHash â€” Get tx data
+qrl_getTransactionCount  â€” Get nonce
+qrl_blockNumber          â€” Get latest block number
+qrl_sendRawTransaction   â€” Broadcast pre-signed tx (no popup!)
+qrl_gasPrice             â€” Get gas price
+qrl_feeHistory           â€” Get fee history (EIP-1559)
+qrl_getLogs              â€” Get event logs
+qrl_getStorageAt         â€” Read storage slot
+qrl_getProof             â€” Get Merkle proof
+qrl_newFilter            â€” Create event filter
+qrl_getFilterChanges     â€” Poll filter changes
+qrl_getFilterLogs        â€” Get filter logs
+qrl_uninstallFilter      â€” Remove filter
+qrl_newBlockFilter       â€” Create block filter
+qrl_newPendingTransactionFilter â€” Create pending tx filter
+qrl_subscribe            â€” WebSocket subscription
+qrl_unsubscribe          â€” Remove subscription
+qrl_syncing              â€” Get sync status
+net_version              â€” Get network ID
+web3_clientVersion       â€” Get node version
+wallet_getPermissions    â€” Get DApp permissions
+wallet_revokePermissions â€” Revoke DApp permissions
+wallet_getCallsStatus    â€” Get batch tx status (EIP-5792)
+zondWallet_getProviderState â€” Get wallet state (chainId, accounts)
+```
+
+## Middleware Pipeline Detail
+
+### 1. blockUnSupportedMethodsMiddleware
+- Checks `req.method` is in `ALL_REQUEST_METHODS` (union of restricted + unrestricted)
+- If not found â†’ returns error: "The method does not exist / is not available"
+- **This is why sending `eth_*` to the wallet would fail! Legacy `zond_*` methods are also rejected by the current wallet.**
+
+### 2. appendSenderDataMiddleware
+- Attaches `{ url, tabId }` to `req.senderData` so middleware can check DApp origin
+
+### 3. unrestrictedMethodsMiddleware
+- Handles unrestricted methods
+- `qrl_accounts` requires prior DApp connection (checks `checkUrlOriginHasBeenConnected`)
+- Sends message to contentScript via `browser.tabs.sendMessage(tabId, ...)`
+- contentScript creates `@theqrl/web3` instance with active chain's RPC URL and executes
+
+### 4. restrictedMethodsMiddleware
+- **Step 1: `checkRequestCanProceed()`**
+  - For `wallet_addQRLChain`, `wallet_switchQRLChain`, `wallet_getCapabilities`:
+    - Checks `checkUrlOriginHasBeenConnected()` â€” DApp must be connected first
+    - If not connected â†’ silently returns error (no popup shown!)
+  - For `qrl_sendTransaction`, `qrl_signTypedData_v4`, `personal_sign`:
+    - Checks `checkAccountHasBeenAuthorized()` â€” account must be authorized
+
+- **Step 2: `checkRequestCanCompleteSilently()`**
+  - `wallet_addQRLChain`: If chainId exists in stored blockchains â†’ silently activates via `StorageUtil.setActiveBlockChain(chainId)`. Otherwise â†’ `hasCompleted: false`
+  - `wallet_switchQRLChain`: If already current chain OR DApp-connected chain â†’ silently switches. Otherwise â†’ `hasCompleted: false`
+  - `wallet_getCapabilities`: Returns capabilities immediately
+
+- **Step 3: Open popup for user approval**
+  - Opens extension popup via `browser.action.openPopup()`
+  - Waits for `DAPP_RESPONSE` message from UI
+  - User approves/rejects in the popup
+
+## How `qrl_sendTransaction` Works
+
+1. DApp sends `qrl_sendTransaction` with tx params (from, to, data, value, gas, etc.)
+2. Middleware checks: method is restricted â†’ check account authorized â†’ open popup
+3. Wallet UI shows transaction details to user
+4. User approves â†’ wallet signs tx using stored keystore (ML-DSA-87 signature)
+5. Wallet broadcasts signed tx via `@theqrl/web3` â†’ `qrl_sendRawTransaction` â†’ node
+6. Returns transaction hash to DApp
+
+**The wallet handles signing AND broadcasting.** The DApp only needs to send the unsigned tx params.
+
+## How Unrestricted Methods Work (e.g., qrl_call, qrl_estimateGas)
+
+1. DApp sends `qrl_call` with call params
+2. serviceWorker â†’ unrestrictedMethodsMiddleware â†’ sends message to contentScript tab
+3. contentScript receives message, calls `getQrlProperties()`:
+   ```typescript
+   const { defaultRpcUrl } = await StorageUtil.getActiveBlockChain();
+   const qrlHttpProvider = new Web3.providers.HttpProvider(defaultRpcUrl);
+   const { qrl } = new Web3({ provider: qrlHttpProvider });
+   ```
+4. Uses `qrl.call(transactionObj, blockParam)` â€” @theqrl/web3 v0.4.0 sends `qrl_call` to node
+5. Returns result back through the message chain to DApp
+
+**The contentScript uses the ACTIVE blockchain's RPC URL** â€” this is why `wallet_addQRLChain` must succeed before making calls. If the wallet is still on Testnet, all reads go to the public testnet too.
+
+## DApp Connection Flow (Correct Order)
+
+```
+1. qrl_requestAccounts    â†’ Popup: "Connect to DApp?" â†’ User approves
+                           â†’ Updates connected accounts + blockchains for origin
+                           â†’ Returns [account_address]
+
+2. wallet_addQRLChain     â†’ If chainId exists: silently activates
+                           â†’ If new: Popup: "Add chain?" â†’ User approves
+                           â†’ Chain added to storage + activated
+
+3. qrl_call / qrl_sendTransaction / etc. â†’ Now uses correct chain
+```
+
+**CRITICAL ORDER**: `qrl_requestAccounts` MUST be called BEFORE `wallet_addQRLChain` because:
+- `wallet_addQRLChain` is in `QRL_WALLET_DAPP_CONNECTION_REQUIRED_METHODS`
+- `checkRequestCanProceed()` checks `checkUrlOriginHasBeenConnected()` first
+- If DApp not connected â†’ returns error silently â†’ chain not switched
+
+## Custom Chain Addition via wallet_addQRLChain
+
+Params structure:
+```typescript
+{
+  chainId: "0x7e7f",             // hex string
+  chainName: "QRL Local Dev",
+  rpcUrls: ["http://127.0.0.1:8545"],
+  nativeCurrency: { name: "Quanta", symbol: "QRL", decimals: 18 },
+  blockExplorerUrls: [],
+  iconUrls: [],
+}
+```
+
+If chainId matches a stored chain â†’ `StorageUtil.setActiveBlockChain(chainId)` â†’ silently activates.
+If new â†’ popup for user approval â†’ chain stored + activated.
+
+## Address Format
+- QRL uses `Q` prefix instead of `0x` for addresses
+- `Q20fE5d32C2BDd3e5854503053459017A933ADa1c` â†” `0x20fE5d32C2BDd3e5854503053459017A933ADa1c`
+- Wallet returns Q-prefixed addresses
+- `@theqrl/web3` v0.4.0 handles Q prefix natively
+- ethers.js requires 0x prefix â†’ DApp proxy must convert
+
+## Version Migration Notes
+
+The current wallet (main branch) uses `qrl_*` prefix. DApps using the old `zond_*` prefix will be rejected by `blockUnSupportedMethodsMiddleware`. PQlyMarket's `wallet.js` handles this automatically:
+
+1. Try `qrl_requestAccounts` first (current wallet)
+2. Fall back to `zond_requestAccounts` if rejected (legacy v0.1.1)
+3. Store detected prefix for subsequent calls
+
+## Key Source Files
+
+| File | Purpose |
+|------|---------|
+| `src/scripts/inPageScript.ts` | Injects EIP-6963 provider into page |
+| `src/scripts/contentScript.ts` | Bridge pageâ†”extension, handles unrestricted methods |
+| `src/scripts/serviceWorker.ts` | Background middleware pipeline |
+| `src/scripts/constants/requestConstants.ts` | Method allowlists |
+| `src/scripts/constants/streamConstants.ts` | Provider info, message names |
+| `src/scripts/middlewares/blockUnSupportedMethodsMiddleware.ts` | Blocks unknown methods |
+| `src/scripts/middlewares/restrictedMethodsMiddleware.ts` | Handles restricted methods (popup) |
+| `src/scripts/middlewares/unrestrictedMethodsMiddleware.ts` | Handles unrestricted methods |
+| `src/configuration/qrlBlockchainConfig.ts` | Chain configs (Mainnet/Testnet) |
+| `src/utilities/storageUtil.ts` | Browser storage management |
+
+﻿# PQlyMarket â€” Full Compatibility Audit (2026-05)
+
+## Audit Scope
+End-to-end flow: Contracts â†” Wallet â†” Proxy â†” Frontend â†” Chain
+
+---
+
+## 1. Smart Contracts â†’ Wallet Compatibility âœ…
+
+### ABI & Bytecode
+- All contracts compiled via `@theqrl/hypc` (Hyperion ^0.0.2)
+- Artifacts in `artifacts/*.json` with fields: `contractName`, `abi`, `bytecode`
+- ABI encoding is standard EVM ABI (same as Solidity)
+- ethers.js v6 produces correct calldata from these ABIs
+
+### On-Chain Verification
+- `MarketFactory.createMarket("test", endTime)` â†’ `qrl_call` SUCCESS
+- Gas estimate: 1,856,486 (via `qrl_estimateGas`)
+- Function selector `0x883c84c1` matches ABI exactly
+- Both ethers.js and `@theqrl/web3` produce identical calldata
+
+### Opcodes
+- Bytecode contains DUP9, SWAP8, SWAP9, SWAP10 (from PredictionMarket constructor with 6 params)
+- All are valid EVM opcodes supported by ZVM (Zond Virtual Machine)
+
+**Verdict**: Contracts are fully compatible.
+
+---
+
+## 2. Proxy Layer (wallet.js) âœ…
+
+### Architecture
+```
+ethers.js BrowserProvider (eth_*)
+  â†’ wallet.js createZondProxyProvider
+    â†’ Read-only methods â†’ LOCAL_METHODS â†’ direct fetch to gqrl (qrl_*)
+    â†’ Write methods â†’ mapEthMethod() â†’ wallet extension (qrl_*)
+```
+
+### Features
+| Feature | Status |
+|---------|--------|
+| Auto-detect wallet prefix (qrl_* default, zond_* legacy fallback) | âœ… |
+| Dynamic `mapEthMethod()` (prefix-agnostic) | âœ… |
+| `convertRequestParams` uses base method name | âœ… |
+| `hasAddressResponse()` is prefix-agnostic | âœ… |
+| Chain ID from config (`config.chainId \|\| 32382`) | ✅ |
+
+### Current Flow
+1. **Auto-detection**: During `connectToWallet()`, tries `qrl_requestAccounts` first, falls back to `zond_requestAccounts` (v0.1.1 legacy)
+2. **walletMethodPrefix**: Default `"qrl_"`, set to `"zond_"` only for legacy wallet
+3. **mapEthMethod()**: `eth_sendTransaction` â†’ `qrl_sendTransaction`
+4. **Persistence**: Prefix saved to localStorage (`pqly_wallet_prefix`) for auto-reconnect
+5. **Reset**: Cleared on disconnect, resets to `"qrl_"`
+
+### Read-Only Bypass
+LOCAL_METHODS always go directly to the RPC endpoint via `fetch()` with `qrl_*` prefix. By default this is the RPC Proxy at `https://rpc.pqlymarket.com/`, bypassing the wallet extension entirely.
+
+**Verdict**: Proxy is production-ready.
+
+---
+
+## 3. Frontend â†’ Wallet âœ…
+
+### Connection Order (CRITICAL)
+```
+1. qrl_requestAccounts        â†’ Connect DApp to wallet (MUST be first!)
+2. wallet_addQRLChain          â†’ Add local chain (0x7e7f) to wallet
+3. Create ethers.BrowserProvider â†’ Ready for contract calls
+```
+
+`wallet_addQRLChain` is in `QRL_WALLET_DAPP_CONNECTION_REQUIRED_METHODS`. If called before `requestAccounts`, it silently fails â†’ wallet stays on Testnet â†’ all txs go to wrong chain.
+
+### Transaction Population
+QRL Wallet requires ALL tx fields (ethers.js doesn't populate them):
+- `type`: "0x2" (EIP-1559)
+- `chainId`: "0x7e7f"
+- `gas`: estimated via `qrl_estimateGas` with 4x buffer
+- `maxFeePerGas`, `maxPriorityFeePerGas`: from latest block
+- `nonce`: from `qrl_getTransactionCount`
+- `value`: "0x0" for non-payable
+
+The proxy's `populateTransactionFields()` fills all these before sending to wallet.
+
+### Contract Interaction
+```javascript
+// Client-side pattern:
+var contract = await PQlyWallet.getContractWithSigner("MarketFactory");
+var tx = await contract.createMarket(question, endTime);
+var receipt = await tx.wait();
+```
+
+ethers.js encodes the call â†’ proxy populates tx fields â†’ proxy translates eth_â†’qrl_ â†’ wallet signs + broadcasts.
+
+**Verdict**: Frontend-to-wallet flow is correct.
+
+---
+
+## 4. Wallet â†’ Chain âœ…
+
+### Internal Architecture (from source code analysis)
+```
+DApp â†’ qrl_sendTransaction â†’ Wallet Middleware Pipeline
+  1. blockUnSupportedMethodsMiddleware (reject unknown methods)
+  2. appendSenderDataMiddleware (add { url, tabId })
+  3. unrestrictedMethodsMiddleware (read-only â†’ contentScript)
+  4. restrictedMethodsMiddleware (write ops â†’ popup â†’ sign â†’ broadcast)
+```
+
+### How the wallet talks to the node
+- **Unrestricted methods** (qrl_call, qrl_estimateGas): contentScript creates `new Web3(activeBlockchain.defaultRpcUrl)` â†’ `@theqrl/web3` v0.4.0 sends `qrl_call` to node
+- **Restricted methods** (qrl_sendTransaction): Wallet signs internally, broadcasts via `@theqrl/web3` v0.4.0 â†’ `qrl_sendRawTransaction` to node
+
+### Chain Selection
+- Wallet uses `StorageUtil.getActiveBlockChain()` for RPC URL
+- After `wallet_addQRLChain` succeeds, the configured chain is activated
+- For testnet: uses RPC Proxy at `https://rpc.pqlymarket.com/`
+- For local dev: uses `http://127.0.0.1:8545` (Chain ID 0x7e7f)
+- All wallet-to-node communication goes through the active chain's RPC URL
+
+**Verdict**: Wallet-to-chain flow is correct (once proper connection order is followed).
+
+---
+
+## 5. Chain (gqrl) âœ…
+
+- go-qrl v0.3.0: `qrl_*` RPC prefix (built from source)
+- Chain ID: 32382 (0x7e7e) for public testnet, 32383 (0x7e7f) for local docker
+- Q-prefix addresses throughout
+- Supports all standard EVM opcodes including DUP9, SWAP8â€“SWAP10
+- ZVM (Zond Virtual Machine) is EVM-compatible with post-quantum signatures (ML-DSA-87)
+- `@theqrl/web3` v0.4.0 sends `qrl_*` natively â€” no proxy needed
+
+**Verdict**: Chain operates correctly.
+
+---
+
+## Summary
+
+| Layer | Status | Notes |
+|-------|--------|-------|
+| Contracts (Hyperion) | âœ… OK | ABI correct, opcodes valid |
+| Proxy (wallet.js) | âœ… OK | eth_* â†’ qrl_*, Qâ†”0x conversion, legacy zond_* fallback |
+| Frontend â†’ Wallet | âœ… OK | Correct connection order, tx population complete |
+| Wallet â†’ Chain | âœ… OK | @theqrl/web3 v0.4.0 sends qrl_* natively |
+| Chain (gqrl) | âœ… OK | qrl_* RPC, Q-prefix, EVM-compatible |
+
+## Version Stack
+
+| Component | Version | RPC Prefix | Address Prefix |
+|-----------|---------|------------|----------------|
+| gqrl (go-qrl) | v0.3.0 (from source) | `qrl_*` | Q |
+| beacon-chain (qrysm) | main branch (from source) | â€” | Q |
+| validator (qrysm) | main branch (from source) | â€” | Q |
+| @theqrl/web3 | v0.4.0 | `qrl_*` | Q |
+| QRL Web3 Wallet | main branch | `qrl_*` | Q |
+| ethers.js | v6.13.5 | `eth_*` (proxied) | 0x |
+
+

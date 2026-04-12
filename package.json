@@ -7,9 +7,14 @@
     "doc": "docs"
   },
   "scripts": {
+    "help": "node scripts/help.js",
     "compile": "node scripts/hyp-compile.js",
     "deploy": "node scripts/deploy-qrl.js",
     "drain": "node scripts/drain-contracts.js",
+    "fill": "node scripts/fill-contracts.js",
+    "verify": "node scripts/verify-deploy.js",
+    "authorize": "node scripts/authorize-creator.js",
+    "patch-web3": "node scripts/patch-web3.js",
     "build:contracts": "node scripts/hyp-compile.js",
     "build:frontend": "cd frontend && npm install && npm run build",
     "build": "npm run build:contracts && npm run build:frontend",

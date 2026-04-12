@@ -2,7 +2,7 @@ const { QrlProvider } = require("./qrl-provider");
 const { Web3 } = require("@theqrl/web3");
 
 async function main() {
-  const web3 = new Web3(new QrlProvider(process.env.RPC_URL || "https://qrlwallet.com/api/qrl-rpc/testnet"));
+  const web3 = new Web3(new QrlProvider(process.env.RPC_URL || "https://rpc.pqlymarket.com/"));
 
   try {
     const blockNum = await web3.zond.getBlockNumber();

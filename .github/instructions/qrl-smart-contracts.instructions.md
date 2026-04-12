@@ -6,7 +6,7 @@ applyTo: "contracts/**,scripts/**"
 # QRL Zond Smart Contract Development
 
 ## QRL 2.0 Zond Network Configuration
-- **Public Testnet (via RPC Proxy)**: Chain ID 32382 (0x7e7e), RPC https://qrlwallet.com/api/qrl-rpc/testnet
+- **Public Testnet (via RPC Proxy)**: Chain ID 32382 (0x7e7e), RPC https://rpc.pqlymarket.com/
 - **Local Docker (dev)**: Chain ID 32383 (0x7e7f), RPC http://127.0.0.1:8545
 - Web3 Library: `@theqrl/web3` (required instead of standard web3/ethers)
 - Always use `process.env.RPC_URL` so the endpoint is configurable
@@ -37,7 +37,7 @@ The wallet extension and @theqrl/web3 v0.4.0 both use `qrl_*` natively. No proxy
 ## Contract Deploy Pattern (QRL Zond)
 ```javascript
 const Web3 = require('@theqrl/web3');
-const web3 = new Web3(process.env.RPC_URL || 'https://qrlwallet.com/api/qrl-rpc/testnet');
+const web3 = new Web3(process.env.RPC_URL || 'https://rpc.pqlymarket.com/');
 
 // Load artifact
 const artifact = require('../artifacts/MyContract.json');
