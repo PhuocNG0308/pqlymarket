@@ -6,6 +6,9 @@ import { apiRouter } from "./routes/api";
 
 export const app = express();
 
+// Trust proxy for Cloudflare tunnels
+app.set("trust proxy", 1);
+
 // View engine
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "../views"));
