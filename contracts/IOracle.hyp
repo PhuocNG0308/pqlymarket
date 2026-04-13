@@ -3,9 +3,8 @@ pragma hyperion ^0.0.2;
 
 /// @title IOracle - Common interface for Oracle and GovernanceOracle
 /// @notice Both Oracle.hyp and GovernanceOracle.hyp implement this interface.
+///         Supports multi-outcome markets: winning outcome is a uint256 index.
 interface IOracle {
-    enum Outcome { Unresolved, Yes, No, Invalid }
-
     function isResolved(uint256 marketId) external view returns (bool);
-    function getOutcome(uint256 marketId) external view returns (Outcome);
+    function getWinningOutcome(uint256 marketId) external view returns (uint256);
 }

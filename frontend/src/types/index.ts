@@ -9,12 +9,21 @@ export interface ContractAddresses {
   LiquidityPool?: string;
 }
 
+export interface MarketOutcome {
+  outcomeIndex: number;
+  label: string;
+  yesPrice: number;
+  noPrice: number;
+}
+
 export interface MarketData {
   id: number;
   question: string;
   category: "BTC" | "QRL";
-  yesPrice: number;
-  noPrice: number;
+  outcomeCount: number;
+  outcomes: MarketOutcome[];
+  yesPrice: number;    // backward compat: outcome 0 YES price
+  noPrice: number;     // backward compat: outcome 0 NO price
   volume: string;
   traders: string;
   endDate: string;
@@ -23,30 +32,6 @@ export interface MarketData {
   metadata?: string;
   icon?: string;
   liquidity?: string;
-  address?: string;
-  groupId?: number;           // if part of a group, the group ID
-  outcomeLabel?: string;      // label within the group, e.g. "↑ $200"
-}
-
-export interface MarketGroupData {
-  groupId: number;
-  title: string;
-  category: "BTC" | "QRL";
-  endDate: string;
-  creator: string;
-  outcomes: MarketGroupOutcome[];
-  totalVolume: string;
-  totalTraders: string;
-  icon?: string;
-}
-
-export interface MarketGroupOutcome {
-  marketId: number;
-  label: string;
-  yesPrice: number;
-  noPrice: number;
-  volume: string;
-  resolved: boolean;
   address?: string;
 }
 

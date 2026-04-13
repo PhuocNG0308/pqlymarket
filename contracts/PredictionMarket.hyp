@@ -5,7 +5,10 @@ import "./ReentrancyGuard.hyp";
 import "./ConditionalToken.hyp";
 import "./IOracle.hyp";
 
-/// @title PredictionMarket - Core market logic with constant-product AMM for buying/selling outcome shares
+/// @title PredictionMarket - Multi-outcome prediction market with per-outcome constant-product AMM
+/// @notice Each market natively supports N outcomes (min 2). Every outcome has its own
+///         independent binary AMM pool (YES/NO shares). For binary markets, N=2 with
+///         labels ["Yes","No"]. Gas is independent of outcome count (single deploy).
 contract PredictionMarket is ReentrancyGuard {
     enum MarketStatus { Open, Resolved, Canceled }
 
@@ -18,37 +21,51 @@ contract PredictionMarket is ReentrancyGuard {
     ConditionalToken public conditionalToken;
     IOracle public oracle;
 
-    uint256 public yesShares;
-    uint256 public noShares;
-    uint256 public totalLiquidity;
+    // ──── Multi-Outcome ────
+    uint256 public outcomeCount;
+    string[] internal _outcomeLabels;
+
+    // Per-outcome AMM pools (indexed 0 .. outcomeCount-1)
+    mapping(uint256 => uint256) public yesSharesOf;
+    mapping(uint256 => uint256) public noSharesOf;
+
+    // Per-outcome token supply tracking
+    mapping(uint256 => uint256) public totalMintedYes;
+    mapping(uint256 => uint256) public totalMintedNo;
+
+    // ──── Global Stats ────
     uint256 public totalVolume;
     uint256 public traderCount;
-    mapping(uint256 => uint256) public totalMinted;
     mapping(address => bool) public hasTraded;
 
+    // ──── Constants ────
     uint256 public constant INITIAL_LIQUIDITY = 100 ether;
     uint256 public constant FEE_BPS = 200;
     uint256 public constant BPS = 10000;
-
     uint256 public constant CANCEL_SAFETY_PERIOD = 30 days;
+    uint256 public constant MAX_OUTCOMES = 20;
 
-    event SharesBought(address indexed buyer, bool isYes, uint256 amount, uint256 cost);
-    event SharesSold(address indexed seller, bool isYes, uint256 amount, uint256 payout);
-    event MarketResolved(uint256 indexed marketId, IOracle.Outcome outcome);
+    // ──── Events ────
+    event SharesBought(address indexed buyer, uint256 outcomeIndex, bool isYes, uint256 amount, uint256 cost);
+    event SharesSold(address indexed seller, uint256 outcomeIndex, bool isYes, uint256 amount, uint256 payout);
+    event MarketResolved(uint256 indexed marketId, uint256 winningOutcome);
     event MarketCanceled(uint256 indexed marketId, address canceledBy);
     event WinningsClaimed(address indexed user, uint256 amount);
-    event RefundClaimed(address indexed user, uint256 yesShares, uint256 noShares, uint256 refund);
+    event RefundClaimed(address indexed user, uint256 refund);
     event LiquidityAdded(address indexed provider, uint256 amount);
 
     constructor(
         uint256 _marketId,
         string memory _question,
+        string[] memory _labels,
         uint256 _endTime,
         address _creator,
         address _conditionalToken,
         address _oracle
     ) {
         require(_endTime > block.timestamp, "End time must be in the future");
+        require(_labels.length >= 2, "Need at least 2 outcomes");
+        require(_labels.length <= MAX_OUTCOMES, "Too many outcomes");
 
         marketId = _marketId;
         question = _question;
@@ -58,8 +75,12 @@ contract PredictionMarket is ReentrancyGuard {
         conditionalToken = ConditionalToken(_conditionalToken);
         oracle = IOracle(_oracle);
 
-        yesShares = INITIAL_LIQUIDITY;
-        noShares = INITIAL_LIQUIDITY;
+        outcomeCount = _labels.length;
+        for (uint256 i = 0; i < _labels.length; i++) {
+            _outcomeLabels.push(_labels[i]);
+            yesSharesOf[i] = INITIAL_LIQUIDITY;
+            noSharesOf[i] = INITIAL_LIQUIDITY;
+        }
     }
 
     modifier onlyOpen() {
@@ -68,58 +89,84 @@ contract PredictionMarket is ReentrancyGuard {
         _;
     }
 
-    /// @notice Get the price of YES shares (0 to 1 ether scale)
-    function getYesPrice() public view returns (uint256) {
-        return (noShares * 1 ether) / (yesShares + noShares);
+    // ──── View Functions ────
+
+    /// @notice Get all outcome labels
+    function getOutcomeLabels() external view returns (string[] memory) {
+        return _outcomeLabels;
     }
 
-    /// @notice Get the price of NO shares (0 to 1 ether scale)
-    function getNoPrice() public view returns (uint256) {
-        return (yesShares * 1 ether) / (yesShares + noShares);
+    /// @notice Get label for a specific outcome
+    function getOutcomeLabel(uint256 idx) external view returns (string memory) {
+        require(idx < outcomeCount, "Invalid outcome");
+        return _outcomeLabels[idx];
     }
 
-    /// @notice Calculate cost to buy shares using constant product AMM (x * y = k)
-    function getCost(bool isYes, uint256 shares) public view returns (uint256) {
-        uint256 poolOut = isYes ? yesShares : noShares;
-        uint256 poolIn  = isYes ? noShares  : yesShares;
+    /// @notice Get the YES price for a specific outcome (0 to 1 ether scale)
+    function getYesPrice(uint256 outcomeIndex) public view returns (uint256) {
+        require(outcomeIndex < outcomeCount, "Invalid outcome");
+        uint256 yes = yesSharesOf[outcomeIndex];
+        uint256 no = noSharesOf[outcomeIndex];
+        return (no * 1 ether) / (yes + no);
+    }
+
+    /// @notice Get the NO price for a specific outcome
+    function getNoPrice(uint256 outcomeIndex) public view returns (uint256) {
+        require(outcomeIndex < outcomeCount, "Invalid outcome");
+        uint256 yes = yesSharesOf[outcomeIndex];
+        uint256 no = noSharesOf[outcomeIndex];
+        return (yes * 1 ether) / (yes + no);
+    }
+
+    /// @notice Calculate cost to buy shares of a specific outcome
+    function getCost(uint256 outcomeIndex, bool isYes, uint256 shares) public view returns (uint256) {
+        require(outcomeIndex < outcomeCount, "Invalid outcome");
+        uint256 poolOut = isYes ? yesSharesOf[outcomeIndex] : noSharesOf[outcomeIndex];
+        uint256 poolIn  = isYes ? noSharesOf[outcomeIndex]  : yesSharesOf[outcomeIndex];
         require(shares < poolOut, "Not enough liquidity");
         uint256 cost = (poolIn * shares) / (poolOut - shares);
         uint256 fee = (cost * FEE_BPS) / BPS;
         return cost + fee;
     }
 
-    /// @notice Calculate payout for selling shares back to the AMM
-    function getSellPayout(bool isYes, uint256 shares) public view returns (uint256) {
-        uint256 poolIn  = isYes ? yesShares : noShares;
-        uint256 poolOut = isYes ? noShares  : yesShares;
+    /// @notice Calculate payout for selling shares of a specific outcome
+    function getSellPayout(uint256 outcomeIndex, bool isYes, uint256 shares) public view returns (uint256) {
+        require(outcomeIndex < outcomeCount, "Invalid outcome");
+        uint256 poolIn  = isYes ? yesSharesOf[outcomeIndex] : noSharesOf[outcomeIndex];
+        uint256 poolOut = isYes ? noSharesOf[outcomeIndex]  : yesSharesOf[outcomeIndex];
         uint256 payout = poolOut - (poolOut * poolIn) / (poolIn + shares);
         uint256 fee = (payout * FEE_BPS) / BPS;
         return payout - fee;
     }
 
+    // ──── Trading ────
+
     /// @notice Buy outcome shares
-    function buyShares(bool isYes, uint256 minShares) external payable onlyOpen nonReentrant {
+    /// @param outcomeIndex Which outcome to bet on (0-based)
+    /// @param isYes        True = buy YES tokens, False = buy NO tokens
+    /// @param minShares    Minimum shares to receive (slippage protection)
+    function buyShares(uint256 outcomeIndex, bool isYes, uint256 minShares) external payable onlyOpen nonReentrant {
+        require(outcomeIndex < outcomeCount, "Invalid outcome");
         require(msg.value > 0, "Must send value");
 
         uint256 fee = (msg.value * FEE_BPS) / BPS;
         uint256 netAmount = msg.value - fee;
 
-        uint256 poolOut = isYes ? yesShares : noShares;
-        uint256 poolIn  = isYes ? noShares  : yesShares;
+        uint256 poolOut = isYes ? yesSharesOf[outcomeIndex] : noSharesOf[outcomeIndex];
+        uint256 poolIn  = isYes ? noSharesOf[outcomeIndex]  : yesSharesOf[outcomeIndex];
         uint256 shares = poolOut - (poolOut * poolIn) / (poolIn + netAmount);
 
         require(shares >= minShares, "Slippage too high");
         require(shares < poolOut, "Insufficient liquidity");
 
         if (isYes) {
-            yesShares -= shares;
-            noShares  += netAmount;
+            yesSharesOf[outcomeIndex] -= shares;
+            noSharesOf[outcomeIndex]  += netAmount;
         } else {
-            noShares  -= shares;
-            yesShares += netAmount;
+            noSharesOf[outcomeIndex]  -= shares;
+            yesSharesOf[outcomeIndex] += netAmount;
         }
 
-        totalLiquidity += msg.value;
         totalVolume += msg.value;
 
         if (!hasTraded[msg.sender]) {
@@ -128,27 +175,33 @@ contract PredictionMarket is ReentrancyGuard {
         }
 
         uint256 tokenId = isYes
-            ? conditionalToken.yesTokenId(marketId)
-            : conditionalToken.noTokenId(marketId);
+            ? conditionalToken.outcomeYesTokenId(marketId, outcomeIndex)
+            : conditionalToken.outcomeNoTokenId(marketId, outcomeIndex);
         conditionalToken.mint(msg.sender, tokenId, shares);
-        totalMinted[tokenId] += shares;
 
-        emit SharesBought(msg.sender, isYes, shares, msg.value);
+        if (isYes) {
+            totalMintedYes[outcomeIndex] += shares;
+        } else {
+            totalMintedNo[outcomeIndex] += shares;
+        }
+
+        emit SharesBought(msg.sender, outcomeIndex, isYes, shares, msg.value);
     }
 
     /// @notice Sell outcome shares back to the AMM pool
-    function sellShares(bool isYes, uint256 shares, uint256 minPayout) external onlyOpen nonReentrant {
+    function sellShares(uint256 outcomeIndex, bool isYes, uint256 shares, uint256 minPayout) external onlyOpen nonReentrant {
+        require(outcomeIndex < outcomeCount, "Invalid outcome");
         require(shares > 0, "Must sell > 0 shares");
 
         uint256 tokenId = isYes
-            ? conditionalToken.yesTokenId(marketId)
-            : conditionalToken.noTokenId(marketId);
+            ? conditionalToken.outcomeYesTokenId(marketId, outcomeIndex)
+            : conditionalToken.outcomeNoTokenId(marketId, outcomeIndex);
 
         uint256 userBalance = conditionalToken.balanceOf(msg.sender, tokenId);
         require(userBalance >= shares, "Insufficient shares");
 
-        uint256 poolIn  = isYes ? yesShares : noShares;
-        uint256 poolOut = isYes ? noShares  : yesShares;
+        uint256 poolIn  = isYes ? yesSharesOf[outcomeIndex] : noSharesOf[outcomeIndex];
+        uint256 poolOut = isYes ? noSharesOf[outcomeIndex]  : yesSharesOf[outcomeIndex];
 
         uint256 grossPayout = poolOut - (poolOut * poolIn) / (poolIn + shares);
         uint256 fee = (grossPayout * FEE_BPS) / BPS;
@@ -158,23 +211,29 @@ contract PredictionMarket is ReentrancyGuard {
         require(payout <= address(this).balance, "Insufficient contract balance");
 
         if (isYes) {
-            yesShares += shares;
-            noShares  -= grossPayout;
+            yesSharesOf[outcomeIndex] += shares;
+            noSharesOf[outcomeIndex]  -= grossPayout;
         } else {
-            noShares  += shares;
-            yesShares -= grossPayout;
+            noSharesOf[outcomeIndex]  += shares;
+            yesSharesOf[outcomeIndex] -= grossPayout;
         }
 
         totalVolume += payout;
 
         conditionalToken.burn(msg.sender, tokenId, shares);
-        totalMinted[tokenId] -= shares;
+        if (isYes) {
+            totalMintedYes[outcomeIndex] -= shares;
+        } else {
+            totalMintedNo[outcomeIndex] -= shares;
+        }
 
         (bool sent, ) = msg.sender.call{value: payout}("");
         require(sent, "Transfer failed");
 
-        emit SharesSold(msg.sender, isYes, shares, payout);
+        emit SharesSold(msg.sender, outcomeIndex, isYes, shares, payout);
     }
+
+    // ──── Resolution ────
 
     /// @notice Resolve the market after end time
     function resolveMarket() external {
@@ -183,28 +242,27 @@ contract PredictionMarket is ReentrancyGuard {
         require(oracle.isResolved(marketId), "Oracle has not resolved");
 
         status = MarketStatus.Resolved;
-        emit MarketResolved(marketId, oracle.getOutcome(marketId));
+        uint256 winningOutcome = oracle.getWinningOutcome(marketId);
+        emit MarketResolved(marketId, winningOutcome);
     }
 
-    /// @notice Claim winnings after market is resolved
+    /// @notice Claim winnings after market is resolved.
+    ///         Winners are holders of YES tokens on the winning outcome.
+    ///         Their share of the entire contract balance is proportional to their holdings.
     function claimWinnings() external nonReentrant {
         require(status == MarketStatus.Resolved, "Market not resolved");
 
-        IOracle.Outcome outcome = oracle.getOutcome(marketId);
-        require(outcome == IOracle.Outcome.Yes || outcome == IOracle.Outcome.No, "Invalid outcome");
+        uint256 winningOutcome = oracle.getWinningOutcome(marketId);
+        require(winningOutcome < outcomeCount, "Invalid winning outcome");
 
-        uint256 tokenId;
-        if (outcome == IOracle.Outcome.Yes) {
-            tokenId = conditionalToken.yesTokenId(marketId);
-        } else {
-            tokenId = conditionalToken.noTokenId(marketId);
-        }
-
+        uint256 tokenId = conditionalToken.outcomeYesTokenId(marketId, winningOutcome);
         uint256 userShares = conditionalToken.balanceOf(msg.sender, tokenId);
         require(userShares > 0, "No winning shares");
 
-        uint256 totalWinningShares = _getTotalSupplyForToken(tokenId);
-        uint256 payout = (address(this).balance * userShares) / totalWinningShares;
+        uint256 totalWinning = totalMintedYes[winningOutcome];
+        require(totalWinning > 0, "No winning supply");
+
+        uint256 payout = (address(this).balance * userShares) / totalWinning;
 
         conditionalToken.burn(msg.sender, tokenId, userShares);
 
@@ -214,12 +272,59 @@ contract PredictionMarket is ReentrancyGuard {
         emit WinningsClaimed(msg.sender, payout);
     }
 
-    /// @dev Get total minted supply for a token
-    function _getTotalSupplyForToken(uint256 tokenId) internal view returns (uint256) {
-        return totalMinted[tokenId];
+    // ──── Cancellation ────
+
+    /// @notice Cancel a market that was not resolved within the safety period.
+    function cancelMarket() external {
+        require(status == MarketStatus.Open, "Market not open");
+        require(block.timestamp >= endTime + CANCEL_SAFETY_PERIOD, "Safety period not elapsed");
+        require(!oracle.isResolved(marketId), "Oracle has resolved");
+
+        status = MarketStatus.Canceled;
+        emit MarketCanceled(marketId, msg.sender);
     }
 
-    /// @notice Get market info
+    /// @notice Claim a pro-rata refund after market cancellation.
+    function claimRefund() external nonReentrant {
+        require(status == MarketStatus.Canceled, "Market not canceled");
+
+        uint256 totalUserShares = 0;
+        uint256 totalAllShares = 0;
+
+        for (uint256 i = 0; i < outcomeCount; i++) {
+            uint256 yesId = conditionalToken.outcomeYesTokenId(marketId, i);
+            uint256 noId = conditionalToken.outcomeNoTokenId(marketId, i);
+
+            uint256 userYes = conditionalToken.balanceOf(msg.sender, yesId);
+            uint256 userNo = conditionalToken.balanceOf(msg.sender, noId);
+
+            totalUserShares += userYes + userNo;
+            totalAllShares += totalMintedYes[i] + totalMintedNo[i];
+
+            if (userYes > 0) {
+                conditionalToken.burn(msg.sender, yesId, userYes);
+                totalMintedYes[i] -= userYes;
+            }
+            if (userNo > 0) {
+                conditionalToken.burn(msg.sender, noId, userNo);
+                totalMintedNo[i] -= userNo;
+            }
+        }
+
+        require(totalUserShares > 0, "No tokens to refund");
+        require(totalAllShares > 0, "No supply");
+
+        uint256 refund = (address(this).balance * totalUserShares) / totalAllShares;
+
+        (bool sent, ) = msg.sender.call{value: refund}("");
+        require(sent, "Refund transfer failed");
+
+        emit RefundClaimed(msg.sender, refund);
+    }
+
+    // ──── Info Getters ────
+
+    /// @notice Get market info (backward compatible for binary, first outcome prices)
     function getMarketInfo() external view returns (
         string memory _question,
         uint256 _endTime,
@@ -236,8 +341,8 @@ contract PredictionMarket is ReentrancyGuard {
             question,
             endTime,
             status,
-            getYesPrice(),
-            getNoPrice(),
+            getYesPrice(0),
+            getNoPrice(0),
             address(this).balance,
             totalVolume,
             traderCount,
@@ -246,52 +351,25 @@ contract PredictionMarket is ReentrancyGuard {
         );
     }
 
-    /// @notice Cancel a market that was not resolved within the safety period.
-    ///         Anyone can call this after endTime + CANCEL_SAFETY_PERIOD if the oracle
-    ///         has not resolved the market.
-    function cancelMarket() external {
-        require(status == MarketStatus.Open, "Market not open");
-        require(block.timestamp >= endTime + CANCEL_SAFETY_PERIOD, "Safety period not elapsed");
-        require(!oracle.isResolved(marketId), "Oracle has resolved");
-
-        status = MarketStatus.Canceled;
-        emit MarketCanceled(marketId, msg.sender);
-    }
-
-    /// @notice Claim a pro-rata refund after market cancellation.
-    ///         Refund is proportional to the user's share of all outstanding tokens.
-    function claimRefund() external nonReentrant {
-        require(status == MarketStatus.Canceled, "Market not canceled");
-
-        uint256 yesId = conditionalToken.yesTokenId(marketId);
-        uint256 noId  = conditionalToken.noTokenId(marketId);
-
-        uint256 userYes = conditionalToken.balanceOf(msg.sender, yesId);
-        uint256 userNo  = conditionalToken.balanceOf(msg.sender, noId);
-        require(userYes > 0 || userNo > 0, "No tokens to refund");
-
-        uint256 totalOutstanding = totalMinted[yesId] + totalMinted[noId];
-        require(totalOutstanding > 0, "No supply");
-
-        uint256 refund = (address(this).balance * (userYes + userNo)) / totalOutstanding;
-
-        if (userYes > 0) {
-            conditionalToken.burn(msg.sender, yesId, userYes);
-            totalMinted[yesId] -= userYes;
-        }
-        if (userNo > 0) {
-            conditionalToken.burn(msg.sender, noId, userNo);
-            totalMinted[noId] -= userNo;
-        }
-
-        (bool sent, ) = msg.sender.call{value: refund}("");
-        require(sent, "Refund transfer failed");
-
-        emit RefundClaimed(msg.sender, userYes, userNo, refund);
+    /// @notice Get detailed info for a specific outcome
+    function getOutcomeInfo(uint256 outcomeIndex) external view returns (
+        string memory label,
+        uint256 yesPrice,
+        uint256 noPrice,
+        uint256 yesPool,
+        uint256 noPool
+    ) {
+        require(outcomeIndex < outcomeCount, "Invalid outcome");
+        return (
+            _outcomeLabels[outcomeIndex],
+            getYesPrice(outcomeIndex),
+            getNoPrice(outcomeIndex),
+            yesSharesOf[outcomeIndex],
+            noSharesOf[outcomeIndex]
+        );
     }
 
     receive() external payable {
-        totalLiquidity += msg.value;
         emit LiquidityAdded(msg.sender, msg.value);
     }
 }

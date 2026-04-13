@@ -68,8 +68,29 @@ sleep 1
 
 # Start cloudflared Custom Tunnel
 echo -e "${YELLOW}[3/3] Starting Cloudflare tunnel...${NC}"
+
+# Load token from environment or .env file
+CF_TUNNEL_TOKEN="${CF_TUNNEL_TOKEN:-}"
+if [ -z "$CF_TUNNEL_TOKEN" ]; then
+  # Try loading from .env file
+  if [ -f ".env" ]; then
+    CF_TUNNEL_TOKEN=$(grep '^CF_TUNNEL_TOKEN=' .env | cut -d'=' -f2-)
+  fi
+  if [ -f "../.env" ]; then
+    CF_TUNNEL_TOKEN=$(grep '^CF_TUNNEL_TOKEN=' ../.env | cut -d'=' -f2-)
+  fi
+fi
+
+if [ -z "$CF_TUNNEL_TOKEN" ]; then
+  echo -e "${RED}Error: CF_TUNNEL_TOKEN not set. Set it via:${NC}"
+  echo -e "  export CF_TUNNEL_TOKEN=your_token_here"
+  echo -e "  OR add CF_TUNNEL_TOKEN=your_token to .env file"
+  kill $FRONTEND_PID $RPC_PROXY_PID 2>/dev/null
+  exit 1
+fi
+
 rm -f /tmp/cf_tunnel.log
-cloudflared tunnel --no-autoupdate run --token REDACTED_CF_TOKEN > /tmp/cf_tunnel.log 2>&1 &
+cloudflared tunnel --no-autoupdate run --token "$CF_TUNNEL_TOKEN" > /tmp/cf_tunnel.log 2>&1 &
 CLOUDFLARED_PID=$!
 sleep 2
 

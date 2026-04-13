@@ -6,9 +6,8 @@ import "./ReentrancyGuard.hyp";
 import "./PqlToken.hyp";
 
 /// @title GovernanceOracle - Decentralized oracle with PQL token governance voting
-/// @notice Decentralized proposal and dispute resolution workflow.
+/// @notice Supports multi-outcome: proposals and disputes use outcome index (uint256).
 contract GovernanceOracle is Ownable, ReentrancyGuard {
-    enum Outcome { Unresolved, Yes, No, Invalid }
 
     enum ProposalState {
         None,
@@ -18,14 +17,14 @@ contract GovernanceOracle is Ownable, ReentrancyGuard {
     }
 
     struct Proposal {
-        Outcome proposedOutcome;
+        uint256 proposedOutcome;
         address proposer;
         uint256 proposerStake;
         uint256 proposedAt;
         ProposalState state;
         address disputer;
         uint256 disputerStake;
-        Outcome counterOutcome;
+        uint256 counterOutcome;
         uint256 disputeAt;
         uint256 yesVotes;
         uint256 noVotes;
@@ -35,8 +34,8 @@ contract GovernanceOracle is Ownable, ReentrancyGuard {
 
     PqlToken public pqlToken;
 
-    /// @dev Finalized outcomes
-    mapping(uint256 => Outcome) public outcomes;
+    /// @dev Finalized outcomes (outcome index)
+    mapping(uint256 => uint256) public outcomes;
     mapping(uint256 => bool) public isResolved;
 
     /// @dev Active proposals per market
@@ -55,12 +54,12 @@ contract GovernanceOracle is Ownable, ReentrancyGuard {
     uint256 public constant STAKE_CAP = 10000 ether;
     uint256 public constant BPS = 10000;
 
-    event OutcomeProposed(uint256 indexed marketId, Outcome outcome, address proposer, uint256 stake);
-    event OutcomeDisputed(uint256 indexed marketId, Outcome disputeOutcome, address disputer, uint256 stake);
+    event OutcomeProposed(uint256 indexed marketId, uint256 outcome, address proposer, uint256 stake);
+    event OutcomeDisputed(uint256 indexed marketId, uint256 disputeOutcome, address disputer, uint256 stake);
     event VoteCast(uint256 indexed marketId, address voter, bool forProposal, uint256 weight);
-    event MarketResolved(uint256 indexed marketId, Outcome outcome);
-    event ProposalFinalized(uint256 indexed marketId, Outcome outcome, bool disputed);
-    event EmergencyResolved(uint256 indexed marketId, Outcome outcome);
+    event MarketResolved(uint256 indexed marketId, uint256 outcome);
+    event ProposalFinalized(uint256 indexed marketId, uint256 outcome, bool disputed);
+    event EmergencyResolved(uint256 indexed marketId, uint256 outcome);
     event ParametersUpdated(uint256 minProposerStake, uint256 minDisputeStake, uint256 disputeWindow, uint256 votingPeriod);
     event MarketValueUpdated(uint256 indexed marketId, uint256 value);
 
@@ -68,9 +67,8 @@ contract GovernanceOracle is Ownable, ReentrancyGuard {
         pqlToken = PqlToken(_pqlToken);
     }
 
-
-    /// @notice Get the outcome of a resolved market
-    function getOutcome(uint256 marketId) external view returns (Outcome) {
+    /// @notice Get the winning outcome for a resolved market (IOracle interface)
+    function getWinningOutcome(uint256 marketId) external view returns (uint256) {
         return outcomes[marketId];
     }
 
@@ -81,14 +79,14 @@ contract GovernanceOracle is Ownable, ReentrancyGuard {
 
     /// @notice Get proposal details (excluding mappings)
     function getProposalInfo(uint256 marketId) external view returns (
-        Outcome proposedOutcome,
+        uint256 proposedOutcome,
         address proposer,
         uint256 proposerStake,
         uint256 proposedAt,
         ProposalState state,
         address disputer,
         uint256 disputerStake,
-        Outcome _counterOutcome,
+        uint256 _counterOutcome,
         uint256 disputeAt,
         uint256 yesVotes,
         uint256 noVotes
@@ -115,7 +113,6 @@ contract GovernanceOracle is Ownable, ReentrancyGuard {
     }
 
     /// @notice Calculate the required stake for a market based on its value.
-    ///         Dynamic: 1% of market value, floored at minProposerStake, capped at STAKE_CAP.
     function getRequiredStake(uint256 marketId) public view returns (uint256) {
         uint256 value = marketValues[marketId];
         if (value == 0) return minProposerStake;
@@ -131,10 +128,9 @@ contract GovernanceOracle is Ownable, ReentrancyGuard {
         emit MarketValueUpdated(marketId, value);
     }
 
-
-    function proposeOutcome(uint256 marketId, Outcome outcome, uint256 stake) external nonReentrant {
+    /// @notice Propose an outcome for a market (outcome is a 0-based index)
+    function proposeOutcome(uint256 marketId, uint256 outcome, uint256 stake) external nonReentrant {
         require(!isResolved[marketId], "Already resolved");
-        require(outcome != Outcome.Unresolved, "Cannot propose Unresolved");
 
         uint256 required = getRequiredStake(marketId);
         require(stake >= required, "Stake below required minimum");
@@ -153,13 +149,12 @@ contract GovernanceOracle is Ownable, ReentrancyGuard {
         emit OutcomeProposed(marketId, outcome, msg.sender, stake);
     }
 
-
-    function disputeOutcome(uint256 marketId, Outcome counterOutcome, uint256 stake) external nonReentrant {
+    /// @notice Dispute a proposal with a different outcome
+    function disputeOutcome(uint256 marketId, uint256 counterOutcome, uint256 stake) external nonReentrant {
         Proposal storage p = proposals[marketId];
         require(p.state == ProposalState.Proposed, "Not in proposal phase");
         require(block.timestamp < p.proposedAt + disputeWindow, "Dispute window closed");
         require(counterOutcome != p.proposedOutcome, "Must propose different outcome");
-        require(counterOutcome != Outcome.Unresolved, "Cannot propose Unresolved");
 
         uint256 required = getRequiredStake(marketId);
         require(stake >= required, "Stake below required minimum");
@@ -176,7 +171,7 @@ contract GovernanceOracle is Ownable, ReentrancyGuard {
         emit OutcomeDisputed(marketId, counterOutcome, msg.sender, stake);
     }
 
-
+    /// @notice Vote on a disputed proposal (yes = agree with proposer, no = agree with disputer)
     function vote(uint256 marketId, bool forProposal, uint256 weight) external nonReentrant {
         Proposal storage p = proposals[marketId];
         require(p.state == ProposalState.Disputed, "Not in dispute phase");
@@ -199,7 +194,7 @@ contract GovernanceOracle is Ownable, ReentrancyGuard {
         emit VoteCast(marketId, msg.sender, forProposal, weight);
     }
 
-
+    /// @notice Finalize an undisputed proposal after the dispute window
     function finalizeProposal(uint256 marketId) external nonReentrant {
         Proposal storage p = proposals[marketId];
         require(p.state == ProposalState.Proposed, "Not in proposal phase");
@@ -210,13 +205,14 @@ contract GovernanceOracle is Ownable, ReentrancyGuard {
         require(pqlToken.transfer(p.proposer, p.proposerStake), "Return stake failed");
     }
 
+    /// @notice Finalize a disputed proposal after voting period
     function finalizeDispute(uint256 marketId) external nonReentrant {
         Proposal storage p = proposals[marketId];
         require(p.state == ProposalState.Disputed, "Not in dispute phase");
         require(block.timestamp >= p.disputeAt + votingPeriod, "Voting still active");
 
         bool proposalWins = p.yesVotes >= p.noVotes;
-        Outcome finalOutcome = proposalWins ? p.proposedOutcome : p.counterOutcome;
+        uint256 finalOutcome = proposalWins ? p.proposedOutcome : p.counterOutcome;
 
         _finalize(marketId, finalOutcome, true);
 
@@ -228,6 +224,7 @@ contract GovernanceOracle is Ownable, ReentrancyGuard {
         }
     }
 
+    /// @notice Claim voter stake after dispute is finalized
     function claimVoterStake(uint256 marketId) external nonReentrant {
         Proposal storage p = proposals[marketId];
         require(p.state == ProposalState.Finalized, "Not finalized");
@@ -239,9 +236,8 @@ contract GovernanceOracle is Ownable, ReentrancyGuard {
         require(pqlToken.transfer(msg.sender, stake), "Transfer failed");
     }
 
-
-    function emergencyResolve(uint256 marketId, Outcome outcome) external onlyOwner {
-        require(outcome != Outcome.Unresolved, "Invalid outcome");
+    /// @notice Emergency resolve by admin (outcome is a 0-based index)
+    function emergencyResolve(uint256 marketId, uint256 outcome) external onlyOwner {
         outcomes[marketId] = outcome;
         isResolved[marketId] = true;
         proposals[marketId].state = ProposalState.Finalized;
@@ -249,6 +245,7 @@ contract GovernanceOracle is Ownable, ReentrancyGuard {
         emit EmergencyResolved(marketId, outcome);
     }
 
+    /// @notice Update governance parameters
     function updateParameters(
         uint256 _minProposerStake,
         uint256 _minDisputeStake,
@@ -262,8 +259,7 @@ contract GovernanceOracle is Ownable, ReentrancyGuard {
         emit ParametersUpdated(_minProposerStake, _minDisputeStake, _disputeWindow, _votingPeriod);
     }
 
-
-    function _finalize(uint256 marketId, Outcome outcome, bool disputed) internal {
+    function _finalize(uint256 marketId, uint256 outcome, bool disputed) internal {
         outcomes[marketId] = outcome;
         isResolved[marketId] = true;
         proposals[marketId].state = ProposalState.Finalized;

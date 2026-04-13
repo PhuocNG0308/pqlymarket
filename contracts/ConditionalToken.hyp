@@ -5,9 +5,13 @@ import "./ERC1155.hyp";
 import "./Ownable.hyp";
 
 /// @title ConditionalToken - ERC1155 tokens representing prediction market outcome positions
+/// @notice Supports multi-outcome markets. Each outcome in each market has a unique token ID.
 contract ConditionalToken is ERC1155, Ownable {
     /// @dev Addresses authorized to mint and burn tokens (PredictionMarket contracts)
     mapping(address => bool) public authorizedMinters;
+
+    /// @dev Maximum outcomes per market (used in token ID encoding)
+    uint256 public constant MAX_OUTCOMES = 20;
 
     event TokensMinted(address indexed to, uint256 indexed tokenId, uint256 amount);
     event TokensBurned(address indexed from, uint256 indexed tokenId, uint256 amount);
@@ -20,14 +24,29 @@ contract ConditionalToken is ERC1155, Ownable {
 
     constructor() ERC1155("") Ownable(msg.sender) {}
 
-    /// @notice Get the YES token ID for a market
-    function yesTokenId(uint256 marketId) public pure returns (uint256) {
-        return marketId * 2;
+    // ──── Token ID Encoding ────
+    // For market M, outcome index O:
+    //   YES token: M * MAX_OUTCOMES * 2 + O * 2
+    //   NO  token: M * MAX_OUTCOMES * 2 + O * 2 + 1
+
+    /// @notice Get YES token ID for a specific outcome in a market
+    function outcomeYesTokenId(uint256 marketId, uint256 outcomeIndex) public pure returns (uint256) {
+        return marketId * MAX_OUTCOMES * 2 + outcomeIndex * 2;
     }
 
-    /// @notice Get the NO token ID for a market
+    /// @notice Get NO token ID for a specific outcome in a market
+    function outcomeNoTokenId(uint256 marketId, uint256 outcomeIndex) public pure returns (uint256) {
+        return marketId * MAX_OUTCOMES * 2 + outcomeIndex * 2 + 1;
+    }
+
+    /// @notice Backward-compatible: YES token for binary markets (outcome index 0)
+    function yesTokenId(uint256 marketId) public pure returns (uint256) {
+        return outcomeYesTokenId(marketId, 0);
+    }
+
+    /// @notice Backward-compatible: NO token for binary markets (outcome index 1)
     function noTokenId(uint256 marketId) public pure returns (uint256) {
-        return marketId * 2 + 1;
+        return outcomeYesTokenId(marketId, 1);
     }
 
     /// @notice Set or revoke minter authorization (only owner)

@@ -3,8 +3,7 @@ import { CONTRACTS, RPC_URL } from "../config/contracts";
 import { QrlJsonRpcProvider } from "./qrl-provider";
 import {
   MarketData,
-  MarketGroupData,
-  MarketGroupOutcome,
+  MarketOutcome,
   FeaturedMarket,
   PriceTrend,
   SentimentData,
@@ -84,21 +83,6 @@ export async function getMarkets(
     );
 
     const marketCount = await factory.marketCount();
-
-    // Build group lookup: marketId → { groupId, outcomeLabel }
-    const groupCount = Number(await factory.groupCount());
-    const groupLookup: Map<number, { groupId: number; label: string }> = new Map();
-    for (let g = 0; g < groupCount; g++) {
-      try {
-        const groupInfo = await factory.getGroup(g);
-        const ids: bigint[] = groupInfo[1];
-        const labels: string[] = groupInfo[2];
-        for (let j = 0; j < ids.length; j++) {
-          groupLookup.set(Number(ids[j]), { groupId: g, label: labels[j] });
-        }
-      } catch { /* skip */ }
-    }
-
     const markets: MarketData[] = [];
 
     for (let i = 0; i < Number(marketCount); i++) {
@@ -130,12 +114,31 @@ export async function getMarkets(
           Number(ethers.formatEther(noPrice)) * 100
         );
 
-        const grp = groupLookup.get(i);
+        // Fetch multi-outcome data
+        const outcomeCount = Number(await market.outcomeCount());
+        const outcomes: MarketOutcome[] = [];
+
+        for (let j = 0; j < outcomeCount; j++) {
+          try {
+            const outcomeInfo = await market.getOutcomeInfo(j);
+            const label: string = outcomeInfo[0];
+            const oYesPrice: bigint = outcomeInfo[1];
+            const oNoPrice: bigint = outcomeInfo[2];
+            outcomes.push({
+              outcomeIndex: j,
+              label,
+              yesPrice: Math.round(Number(ethers.formatEther(oYesPrice)) * 100),
+              noPrice: Math.round(Number(ethers.formatEther(oNoPrice)) * 100),
+            });
+          } catch { /* skip */ }
+        }
 
         markets.push({
           id: i,
           question,
           category: cat,
+          outcomeCount,
+          outcomes,
           yesPrice: yesPriceCents,
           noPrice: noPriceCents,
           volume: formatVolume(totalVolume),
@@ -145,8 +148,6 @@ export async function getMarkets(
           icon: getMarketIcon(cat),
           liquidity: formatVolume(_liquidity),
           address: marketAddr,
-          groupId: grp?.groupId,
-          outcomeLabel: grp?.label,
         });
       } catch {
         // skip broken markets
@@ -156,83 +157,6 @@ export async function getMarkets(
     return markets;
   } catch (err) {
     console.error("Failed to fetch markets from chain:", err);
-    return [];
-  }
-}
-
-/**
- * Get all market groups with their outcomes (Polymarket-style).
- */
-export async function getMarketGroups(
-  category?: string
-): Promise<MarketGroupData[]> {
-  try {
-    const allMarkets = await getMarkets(); // fetch all without category filter
-    const p = getProvider();
-    const factory = new ethers.Contract(CONTRACTS.MarketFactory, MarketFactoryABI, p);
-    const groupCount = Number(await factory.groupCount());
-    const groups: MarketGroupData[] = [];
-
-    for (let g = 0; g < groupCount; g++) {
-      try {
-        const groupInfo = await factory.getGroup(g);
-        const title: string = groupInfo[0];
-        const ids: bigint[] = groupInfo[1];
-        const labels: string[] = groupInfo[2];
-        const endTime: bigint = groupInfo[3];
-        const creator: string = groupInfo[4];
-
-        const cat = categorizeMarket(title);
-        if (category && cat !== category) continue;
-
-        let totalVol = BigInt(0);
-        let totalTr = 0;
-        const outcomes: MarketGroupOutcome[] = [];
-
-        for (let j = 0; j < ids.length; j++) {
-          const mid = Number(ids[j]);
-          const m = allMarkets.find((x) => x.id === mid);
-          if (m) {
-            outcomes.push({
-              marketId: mid,
-              label: labels[j],
-              yesPrice: m.yesPrice,
-              noPrice: m.noPrice,
-              volume: m.volume,
-              resolved: m.resolved,
-              address: m.address,
-            });
-          }
-        }
-
-        // Sum volume from child markets on-chain
-        for (const id of ids) {
-          try {
-            const addr = await factory.markets(Number(id));
-            const mc = new ethers.Contract(addr, PredictionMarketABI, p);
-            const mInfo = await mc.getMarketInfo();
-            totalVol += mInfo[6];
-            totalTr += Number(mInfo[7]);
-          } catch { /* skip */ }
-        }
-
-        groups.push({
-          groupId: g,
-          title,
-          category: cat,
-          endDate: new Date(Number(endTime) * 1000).toLocaleDateString(),
-          creator,
-          outcomes,
-          totalVolume: formatVolume(totalVol),
-          totalTraders: formatTraders(BigInt(totalTr)),
-          icon: getMarketIcon(cat),
-        });
-      } catch { /* skip */ }
-    }
-
-    return groups;
-  } catch (err) {
-    console.error("Failed to fetch market groups:", err);
     return [];
   }
 }
@@ -450,6 +374,7 @@ export async function getPortfolio(account: string): Promise<PortfolioPosition[]
     const { getCostBasis, getSellProceeds } = await import("./database");
     const marketCount = Number(await factory.marketCount());
     const positions: PortfolioPosition[] = [];
+    const MAX_OUTCOMES = 20;
 
     for (let i = 0; i < marketCount; i++) {
       try {
@@ -462,55 +387,78 @@ export async function getPortfolio(account: string): Promise<PortfolioPosition[]
         const yesPrice: bigint = info[3];
         const noPrice: bigint = info[4];
 
-        // Token IDs: yesTokenId = marketId * 2, noTokenId = marketId * 2 + 1
-        const yesTokenId = i * 2;
-        const noTokenId = i * 2 + 1;
+        const outcomeCount = Number(await market.outcomeCount());
 
-        const yesBal: bigint = await ct.balanceOf(account, yesTokenId);
-        const noBal: bigint = await ct.balanceOf(account, noTokenId);
+        for (let j = 0; j < outcomeCount; j++) {
+          // New token ID scheme: marketId * MAX_OUTCOMES * 2 + outcomeIndex * 2
+          const yesTokenId = i * MAX_OUTCOMES * 2 + j * 2;
+          const noTokenId = i * MAX_OUTCOMES * 2 + j * 2 + 1;
 
-        if (yesBal > BigInt(0)) {
-          const shares = Number(ethers.formatEther(yesBal));
-          const price = Number(ethers.formatEther(yesPrice));
-          const posValue = shares * price;
-          const costWei = BigInt(getCostBasis(account, i, 1));
-          const sellWei = BigInt(getSellProceeds(account, i, 1));
-          const netCost = costWei - sellWei;
-          const costEth = Number(netCost) / 1e18;
-          const pnl = posValue - costEth;
+          let oYesPrice = yesPrice;
+          let oNoPrice = noPrice;
+          if (j > 0) {
+            try {
+              const oInfo = await market.getOutcomeInfo(j);
+              oYesPrice = oInfo[1];
+              oNoPrice = oInfo[2];
+            } catch { /* use defaults */ }
+          }
 
-          positions.push({
-            marketId: i,
-            question,
-            side: "YES",
-            shares: shares.toFixed(4),
-            currentPrice: Math.round(price * 100),
-            marketResolved: Number(status) === 1,
-            costBasis: costEth.toFixed(4),
-            unrealizedPnL: pnl.toFixed(4),
-          });
-        }
+          const yesBal: bigint = await ct.balanceOf(account, yesTokenId);
+          const noBal: bigint = await ct.balanceOf(account, noTokenId);
 
-        if (noBal > BigInt(0)) {
-          const shares = Number(ethers.formatEther(noBal));
-          const price = Number(ethers.formatEther(noPrice));
-          const posValue = shares * price;
-          const costWei = BigInt(getCostBasis(account, i, 0));
-          const sellWei = BigInt(getSellProceeds(account, i, 0));
-          const netCost = costWei - sellWei;
-          const costEth = Number(netCost) / 1e18;
-          const pnl = posValue - costEth;
+          let outcomeLabel = "";
+          try {
+            outcomeLabel = await market.getOutcomeLabel(j);
+          } catch { /* skip */ }
 
-          positions.push({
-            marketId: i,
-            question,
-            side: "NO",
-            shares: shares.toFixed(4),
-            currentPrice: Math.round(price * 100),
-            marketResolved: Number(status) === 1,
-            costBasis: costEth.toFixed(4),
-            unrealizedPnL: pnl.toFixed(4),
-          });
+          const displayQuestion = outcomeCount > 2 && outcomeLabel
+            ? `${question}: ${outcomeLabel}`
+            : question;
+
+          if (yesBal > BigInt(0)) {
+            const shares = Number(ethers.formatEther(yesBal));
+            const price = Number(ethers.formatEther(oYesPrice));
+            const posValue = shares * price;
+            const costWei = BigInt(getCostBasis(account, i, 1));
+            const sellWei = BigInt(getSellProceeds(account, i, 1));
+            const netCost = costWei - sellWei;
+            const costEth = Number(netCost) / 1e18;
+            const pnl = posValue - costEth;
+
+            positions.push({
+              marketId: i,
+              question: displayQuestion,
+              side: "YES",
+              shares: shares.toFixed(4),
+              currentPrice: Math.round(price * 100),
+              marketResolved: Number(status) === 1,
+              costBasis: costEth.toFixed(4),
+              unrealizedPnL: pnl.toFixed(4),
+            });
+          }
+
+          if (noBal > BigInt(0)) {
+            const shares = Number(ethers.formatEther(noBal));
+            const price = Number(ethers.formatEther(oNoPrice));
+            const posValue = shares * price;
+            const costWei = BigInt(getCostBasis(account, i, 0));
+            const sellWei = BigInt(getSellProceeds(account, i, 0));
+            const netCost = costWei - sellWei;
+            const costEth = Number(netCost) / 1e18;
+            const pnl = posValue - costEth;
+
+            positions.push({
+              marketId: i,
+              question: displayQuestion,
+              side: "NO",
+              shares: shares.toFixed(4),
+              currentPrice: Math.round(price * 100),
+              marketResolved: Number(status) === 1,
+              costBasis: costEth.toFixed(4),
+              unrealizedPnL: pnl.toFixed(4),
+            });
+          }
         }
       } catch {
         // skip

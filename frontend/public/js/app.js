@@ -17,7 +17,7 @@
     bindCreateMarket();
     bindGovernance();
     checkCreatorStatus();
-    bindGroupPage();
+    bindMultiOutcomeMarket();
   }
 
   /**
@@ -57,12 +57,13 @@
     if (buyYesBtn) {
       buyYesBtn.addEventListener("click", function () {
         var marketId = this.getAttribute("data-market-id");
+        var outcomeIndex = parseInt(this.getAttribute("data-outcome-index") || "0", 10);
         var amount = document.getElementById("yesAmount").value;
         if (!amount || parseFloat(amount) <= 0) {
           PQlyWallet.showToast("Enter a valid amount", "error");
           return;
         }
-        executeBuy(marketId, true, amount);
+        executeBuy(marketId, true, amount, outcomeIndex);
       });
     }
 
@@ -70,12 +71,13 @@
     if (buyNoBtn) {
       buyNoBtn.addEventListener("click", function () {
         var marketId = this.getAttribute("data-market-id");
+        var outcomeIndex = parseInt(this.getAttribute("data-outcome-index") || "0", 10);
         var amount = document.getElementById("noAmount").value;
         if (!amount || parseFloat(amount) <= 0) {
           PQlyWallet.showToast("Enter a valid amount", "error");
           return;
         }
-        executeBuy(marketId, false, amount);
+        executeBuy(marketId, false, amount, outcomeIndex);
       });
     }
 
@@ -84,12 +86,13 @@
     if (sellYesBtn) {
       sellYesBtn.addEventListener("click", function () {
         var marketId = this.getAttribute("data-market-id");
+        var outcomeIndex = parseInt(this.getAttribute("data-outcome-index") || "0", 10);
         var amount = document.getElementById("sellYesAmount").value;
         if (!amount || parseFloat(amount) <= 0) {
           PQlyWallet.showToast("Enter a valid amount", "error");
           return;
         }
-        executeSell(marketId, true, amount);
+        executeSell(marketId, true, amount, outcomeIndex);
       });
     }
 
@@ -97,12 +100,13 @@
     if (sellNoBtn) {
       sellNoBtn.addEventListener("click", function () {
         var marketId = this.getAttribute("data-market-id");
+        var outcomeIndex = parseInt(this.getAttribute("data-outcome-index") || "0", 10);
         var amount = document.getElementById("sellNoAmount").value;
         if (!amount || parseFloat(amount) <= 0) {
           PQlyWallet.showToast("Enter a valid amount", "error");
           return;
         }
-        executeSell(marketId, false, amount);
+        executeSell(marketId, false, amount, outcomeIndex);
       });
     }
 
@@ -144,12 +148,15 @@
   /**
    * Execute a buy transaction
    */
-  async function executeBuy(marketId, isYes, amount) {
+  async function executeBuy(marketId, isYes, amount, outcomeIndex) {
     var account = PQlyWallet.getAccount();
     if (!account) {
       account = await PQlyWallet.connect();
       if (!account) return;
     }
+
+    // Default outcomeIndex to 0 for binary markets
+    if (outcomeIndex === undefined || outcomeIndex === null) outcomeIndex = 0;
 
     try {
       PQlyWallet.showToast("Submitting transaction...", "info");
@@ -162,9 +169,9 @@
       var resp = await fetch("/api/abi/PredictionMarket");
       var data = await resp.json();
 
-      // Buy shares
+      // Buy shares: buyShares(outcomeIndex, isYes, minShares)
       var value = "0x" + ethers.parseEther(amount).toString(16);
-      var tx = await PQlyWallet.writeContractAt(marketAddr, data.abi, "buyShares", [isYes, 0], { value: value });
+      var tx = await PQlyWallet.writeContractAt(marketAddr, data.abi, "buyShares", [outcomeIndex, isYes, 0], { value: value });
 
       PQlyWallet.showToast("Transaction sent. Waiting for confirmation...", "info");
       await tx.wait();
@@ -186,12 +193,15 @@
   /**
    * Execute a sell transaction
    */
-  async function executeSell(marketId, isYes, sharesStr) {
+  async function executeSell(marketId, isYes, sharesStr, outcomeIndex) {
     var account = PQlyWallet.getAccount();
     if (!account) {
       account = await PQlyWallet.connect();
       if (!account) return;
     }
+
+    // Default outcomeIndex to 0 for binary markets
+    if (outcomeIndex === undefined || outcomeIndex === null) outcomeIndex = 0;
 
     try {
       PQlyWallet.showToast("Submitting sell transaction...", "info");
@@ -203,7 +213,8 @@
       var data = await resp.json();
 
       var shares = ethers.parseEther(sharesStr);
-      var tx = await PQlyWallet.writeContractAt(marketAddr, data.abi, "sellShares", [isYes, shares, 0]);
+      // sellShares(outcomeIndex, isYes, shares, minPayout)
+      var tx = await PQlyWallet.writeContractAt(marketAddr, data.abi, "sellShares", [outcomeIndex, isYes, shares, 0]);
 
       PQlyWallet.showToast("Sell transaction sent. Waiting...", "info");
       await tx.wait();
@@ -283,9 +294,11 @@
       var sellBtn = document.querySelector(".btn-sell-yes") || document.querySelector(".btn-sell-no");
       if (!sellBtn) return;
       var marketId = parseInt(sellBtn.getAttribute("data-market-id"), 10);
+      var outcomeIndex = parseInt(sellBtn.getAttribute("data-outcome-index") || "0", 10);
 
-      var yesTokenId = marketId * 2;
-      var noTokenId = marketId * 2 + 1;
+      var MAX_OUTCOMES = 20;
+      var yesTokenId = marketId * MAX_OUTCOMES * 2 + outcomeIndex * 2;
+      var noTokenId = marketId * MAX_OUTCOMES * 2 + outcomeIndex * 2 + 1;
 
       var yesBal = (await PQlyWallet.readContractAt(ctAddr, data.abi, "balanceOf", [account, yesTokenId]))[0];
       var noBal = (await PQlyWallet.readContractAt(ctAddr, data.abi, "balanceOf", [account, noTokenId]))[0];
@@ -313,9 +326,10 @@
    * Fetch pool reserves (yesShares, noShares) via server API.
    * Does not require wallet — works for all visitors.
    */
-  async function fetchPoolReserves(marketId) {
+  async function fetchPoolReserves(marketId, outcomeIndex) {
+    if (outcomeIndex === undefined) outcomeIndex = 0;
     try {
-      var resp = await fetch("/api/market-reserves/" + marketId);
+      var resp = await fetch("/api/market-reserves/" + marketId + "?outcome=" + outcomeIndex);
       var data = await resp.json();
       if (data.success) {
         poolReserves.yes = BigInt(data.yesShares);
@@ -866,7 +880,7 @@
     try {
       PQlyWallet.showToast("Creating market...", "info");
 
-      var tx = await PQlyWallet.writeContract("MarketFactory", "createMarket", [question, endTime]);
+      var tx = await PQlyWallet.writeContract("MarketFactory", "createBinaryMarket", [question, endTime]);
 
       PQlyWallet.showToast("Transaction sent. Waiting for confirmation...", "info");
       await tx.wait();
@@ -1123,37 +1137,38 @@
     }
   }
 
-  // ---- Group Page (Polymarket-style multi-outcome) ----
+  // ---- Multi-Outcome Market Page ----
 
-  function bindGroupPage() {
-    var groupOutcomes = document.getElementById("groupOutcomes");
-    if (!groupOutcomes) return;
+  function bindMultiOutcomeMarket() {
+    var multiOutcomes = document.getElementById("multiOutcomes");
+    if (!multiOutcomes) return;
+
+    var marketData = window.__MARKET_DATA__;
+    if (!marketData) return;
 
     // Outcome row toggle — expand/collapse trade panel
-    groupOutcomes.querySelectorAll(".outcome-row").forEach(function (row) {
+    multiOutcomes.querySelectorAll(".outcome-row").forEach(function (row) {
       row.addEventListener("click", function (e) {
-        // Don't toggle if clicking a button
         if (e.target.closest("button")) return;
-        var mid = this.getAttribute("data-market-id");
-        var panel = document.getElementById("outcomePanel-" + mid);
+        var idx = this.getAttribute("data-outcome-index");
+        var panel = document.getElementById("outcomePanel-" + idx);
         if (panel) panel.classList.toggle("hidden");
       });
     });
 
-    // Buy Yes quick buttons
-    groupOutcomes.querySelectorAll(".group-buy-yes").forEach(function (btn) {
+    // Buy YES quick buttons
+    multiOutcomes.querySelectorAll(".multi-buy-yes").forEach(function (btn) {
       btn.addEventListener("click", function (e) {
         e.stopPropagation();
-        var mid = this.getAttribute("data-market-id");
-        var panel = document.getElementById("outcomePanel-" + mid);
+        var idx = this.getAttribute("data-outcome-index");
+        var panel = document.getElementById("outcomePanel-" + idx);
         if (panel) {
           panel.classList.remove("hidden");
           // Set side to YES
           panel.querySelectorAll(".outcome-side-btn").forEach(function (sb) {
             if (sb.getAttribute("data-side") === "yes") {
-              sb.classList.add("bg-primary", "text-on-primary");
+              sb.classList.add("bg-primary", "text-on-primary", "active");
               sb.classList.remove("bg-surface-container-highest", "text-on-surface-variant");
-              sb.classList.add("active");
             } else {
               sb.classList.remove("bg-primary", "text-on-primary", "active");
               sb.classList.add("bg-surface-container-highest", "text-on-surface-variant");
@@ -1163,20 +1178,18 @@
       });
     });
 
-    // Buy No quick buttons
-    groupOutcomes.querySelectorAll(".group-buy-no").forEach(function (btn) {
+    // Buy NO quick buttons
+    multiOutcomes.querySelectorAll(".multi-buy-no").forEach(function (btn) {
       btn.addEventListener("click", function (e) {
         e.stopPropagation();
-        var mid = this.getAttribute("data-market-id");
-        var panel = document.getElementById("outcomePanel-" + mid);
+        var idx = this.getAttribute("data-outcome-index");
+        var panel = document.getElementById("outcomePanel-" + idx);
         if (panel) {
           panel.classList.remove("hidden");
-          // Set side to NO
           panel.querySelectorAll(".outcome-side-btn").forEach(function (sb) {
             if (sb.getAttribute("data-side") === "no") {
-              sb.classList.add("bg-primary", "text-on-primary");
+              sb.classList.add("bg-primary", "text-on-primary", "active");
               sb.classList.remove("bg-surface-container-highest", "text-on-surface-variant");
-              sb.classList.add("active");
             } else {
               sb.classList.remove("bg-primary", "text-on-primary", "active");
               sb.classList.add("bg-surface-container-highest", "text-on-surface-variant");
@@ -1187,10 +1200,10 @@
     });
 
     // Side toggle buttons inside expanded panels
-    groupOutcomes.querySelectorAll(".outcome-side-btn").forEach(function (btn) {
+    multiOutcomes.querySelectorAll(".outcome-side-btn").forEach(function (btn) {
       btn.addEventListener("click", function () {
-        var mid = this.getAttribute("data-market-id");
-        var panel = document.getElementById("outcomePanel-" + mid);
+        var idx = this.getAttribute("data-outcome-index");
+        var panel = document.getElementById("outcomePanel-" + idx);
         if (!panel) return;
         panel.querySelectorAll(".outcome-side-btn").forEach(function (sb) {
           sb.classList.remove("bg-primary", "text-on-primary", "active");
@@ -1202,10 +1215,11 @@
     });
 
     // Buy buttons inside expanded panels
-    groupOutcomes.querySelectorAll(".outcome-buy-btn").forEach(function (btn) {
+    multiOutcomes.querySelectorAll(".outcome-buy-btn").forEach(function (btn) {
       btn.addEventListener("click", function () {
         var mid = this.getAttribute("data-market-id");
-        var panel = document.getElementById("outcomePanel-" + mid);
+        var idx = parseInt(this.getAttribute("data-outcome-index"), 10);
+        var panel = document.getElementById("outcomePanel-" + idx);
         if (!panel) return;
 
         var activeBtn = panel.querySelector(".outcome-side-btn.active");
@@ -1217,15 +1231,16 @@
           PQlyWallet.showToast("Enter a valid amount", "error");
           return;
         }
-        executeBuy(mid, isYes, amount);
+        executeBuy(mid, isYes, amount, idx);
       });
     });
 
     // Sell buttons inside expanded panels
-    groupOutcomes.querySelectorAll(".outcome-sell-btn").forEach(function (btn) {
+    multiOutcomes.querySelectorAll(".outcome-sell-btn").forEach(function (btn) {
       btn.addEventListener("click", function () {
         var mid = this.getAttribute("data-market-id");
-        var panel = document.getElementById("outcomePanel-" + mid);
+        var idx = parseInt(this.getAttribute("data-outcome-index"), 10);
+        var panel = document.getElementById("outcomePanel-" + idx);
         if (!panel) return;
 
         var activeBtn = panel.querySelector(".outcome-side-btn.active");
@@ -1237,12 +1252,12 @@
           PQlyWallet.showToast("Enter a valid shares amount", "error");
           return;
         }
-        executeSell(mid, isYes, amount);
+        executeSell(mid, isYes, amount, idx);
       });
     });
 
     // Claim buttons for resolved outcomes
-    groupOutcomes.querySelectorAll(".group-claim").forEach(function (btn) {
+    multiOutcomes.querySelectorAll(".multi-claim").forEach(function (btn) {
       btn.addEventListener("click", function (e) {
         e.stopPropagation();
         var mid = this.getAttribute("data-market-id");
@@ -1252,14 +1267,14 @@
 
     // Load user shares for all outcomes on wallet ready
     PQlyWallet.onReady(function (account) {
-      if (account) loadGroupUserShares(account);
+      if (account) loadMultiOutcomeUserShares(account, marketData);
     });
   }
 
   /**
-   * Load share balances for all outcomes in the group
+   * Load share balances for all outcomes in a multi-outcome market
    */
-  async function loadGroupUserShares(account) {
+  async function loadMultiOutcomeUserShares(account, marketData) {
     try {
       var config = window.__PQLY_CONFIG__ || {};
       var ctAddr = config.contracts && config.contracts.ConditionalToken;
@@ -1268,28 +1283,27 @@
       var resp = await fetch("/api/abi/ConditionalToken");
       var data = await resp.json();
 
-      var groupData = window.__GROUP_DATA__;
-      if (!groupData || !groupData.outcomes) return;
+      var MAX_OUTCOMES = 20;
+      var mid = marketData.id;
 
-      for (var i = 0; i < groupData.outcomes.length; i++) {
-        var o = groupData.outcomes[i];
-        var mid = o.marketId;
-        var yesTokenId = mid * 2;
-        var noTokenId = mid * 2 + 1;
+      for (var i = 0; i < marketData.outcomes.length; i++) {
+        var idx = marketData.outcomes[i].outcomeIndex;
+        var yesTokenId = mid * MAX_OUTCOMES * 2 + idx * 2;
+        var noTokenId = mid * MAX_OUTCOMES * 2 + idx * 2 + 1;
 
         try {
           var yesBal = (await PQlyWallet.readContractAt(ctAddr, data.abi, "balanceOf", [account, yesTokenId]))[0];
           var noBal = (await PQlyWallet.readContractAt(ctAddr, data.abi, "balanceOf", [account, noTokenId]))[0];
 
-          var yesEls = document.querySelectorAll('.outcome-yes-shares[data-market-id="' + mid + '"]');
-          var noEls = document.querySelectorAll('.outcome-no-shares[data-market-id="' + mid + '"]');
+          var yesEls = document.querySelectorAll('.outcome-yes-shares[data-outcome-index="' + idx + '"]');
+          var noEls = document.querySelectorAll('.outcome-no-shares[data-outcome-index="' + idx + '"]');
 
           yesEls.forEach(function (el) { el.textContent = parseFloat(ethers.formatEther(yesBal)).toFixed(4); });
           noEls.forEach(function (el) { el.textContent = parseFloat(ethers.formatEther(noBal)).toFixed(4); });
         } catch (_e) { /* skip */ }
       }
     } catch (err) {
-      console.error("Failed to load group user shares:", err);
+      console.error("Failed to load multi-outcome user shares:", err);
     }
   }
 
@@ -1351,7 +1365,7 @@ function setCreateMode(mode) {
 }
 
 /**
- * Execute create market group on-chain
+ * Execute create multi-outcome market on-chain (single contract deploy)
  */
 async function executeCreateGroup() {
   var account = PQlyWallet.getAccount();
@@ -1364,7 +1378,7 @@ async function executeCreateGroup() {
   var endDateStr = document.getElementById("groupEndDate").value;
 
   if (!title) {
-    PQlyWallet.showToast("Enter a group title", "error");
+    PQlyWallet.showToast("Enter a market question", "error");
     return;
   }
   if (!endDateStr) {
@@ -1391,22 +1405,28 @@ async function executeCreateGroup() {
     return;
   }
 
-  try {
-    PQlyWallet.showToast("Creating market group...", "info");
+  if (labels.length > 20) {
+    PQlyWallet.showToast("Maximum 20 outcomes allowed", "error");
+    return;
+  }
 
-    var tx = await PQlyWallet.writeContract("MarketFactory", "createMarketGroup", [title, labels, endTime]);
+  try {
+    PQlyWallet.showToast("Creating multi-outcome market (" + labels.length + " outcomes)...", "info");
+
+    // Single transaction: createMarket(question, labels[], endTime)
+    var tx = await PQlyWallet.writeContract("MarketFactory", "createMarket", [title, labels, endTime]);
 
     PQlyWallet.showToast("Transaction sent. Waiting for confirmation...", "info");
     await tx.wait();
-    PQlyWallet.showToast("Market group created!", "success");
+    PQlyWallet.showToast("Multi-outcome market created!", "success");
 
     setTimeout(function () {
       window.location.href = "/";
     }, 1500);
   } catch (err) {
-    console.error("Create group failed:", err);
+    console.error("Create multi-outcome market failed:", err);
     PQlyWallet.showToast(
-      err.reason || err.message || "Failed to create market group",
+      err.reason || err.message || "Failed to create market",
       "error"
     );
   }

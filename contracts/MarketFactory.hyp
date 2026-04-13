@@ -6,7 +6,8 @@ import "./ConditionalToken.hyp";
 import "./IOracle.hyp";
 
 /// @title MarketFactory - Factory contract to create and manage prediction markets
-/// Supports both standalone markets and Polymarket-style grouped multi-outcome markets
+/// @notice Supports native multi-outcome markets. Each market deploys ONE PredictionMarket
+///         contract regardless of outcome count, eliminating gas limit issues.
 contract MarketFactory {
     ConditionalToken public conditionalToken;
     IOracle public oracle;
@@ -19,32 +20,11 @@ contract MarketFactory {
     /// @dev Addresses allowed to create markets
     mapping(address => bool) public isMarketCreator;
 
-    struct MarketGroup {
-        string title;
-        uint256[] marketIds;
-        string[] outcomeLabels;
-        uint256 endTime;
-        address creator;
-    }
-
-    uint256 public groupCount;
-    mapping(uint256 => MarketGroup) public _groups;
-    /// @dev Map every child market ID -> its parent group ID (+ 1, so 0 means "no group")
-    mapping(uint256 => uint256) public marketGroupId;
-
     event MarketCreated(
         uint256 indexed marketId,
         address marketAddress,
         string question,
-        uint256 endTime,
-        address creator
-    );
-
-    event MarketGroupCreated(
-        uint256 indexed groupId,
-        string title,
-        uint256[] marketIds,
-        string[] outcomeLabels,
+        uint256 outcomeCount,
         uint256 endTime,
         address creator
     );
@@ -69,14 +49,24 @@ contract MarketFactory {
         emit MarketCreatorUpdated(account, allowed);
     }
 
-    /// @notice Create a new prediction market (only allowed creators)
-    function createMarket(string memory question, uint256 endTime) external returns (address) {
+    /// @notice Create a new prediction market with N outcomes (single deploy, gas-efficient).
+    ///         For binary: outcomeLabels = ["Yes", "No"]
+    ///         For multi:  outcomeLabels = ["Option A", "Option B", "Option C", ...]
+    function createMarket(
+        string memory question,
+        string[] memory outcomeLabels,
+        uint256 endTime
+    ) external returns (address) {
         require(isMarketCreator[msg.sender], "Not authorized to create markets");
+        require(outcomeLabels.length >= 2, "Need at least 2 outcomes");
+        require(outcomeLabels.length <= 20, "Too many outcomes");
+
         uint256 marketId = marketCount;
 
         PredictionMarket market = new PredictionMarket(
             marketId,
             question,
+            outcomeLabels,
             endTime,
             msg.sender,
             address(conditionalToken),
@@ -90,72 +80,41 @@ contract MarketFactory {
 
         conditionalToken.setMinter(marketAddress, true);
 
-        emit MarketCreated(marketId, marketAddress, question, endTime, msg.sender);
+        emit MarketCreated(marketId, marketAddress, question, outcomeLabels.length, endTime, msg.sender);
 
         return marketAddress;
     }
 
-    /// @notice Create a Polymarket-style group of binary markets under one title
-    function createMarketGroup(
-        string memory title,
-        string[] memory outcomeLabels,
-        uint256 endTime
-    ) external returns (uint256 groupId) {
+    /// @notice Convenience: create a standard binary YES/NO market
+    function createBinaryMarket(string memory question, uint256 endTime) external returns (address) {
         require(isMarketCreator[msg.sender], "Not authorized to create markets");
-        require(outcomeLabels.length >= 2, "Need at least 2 outcomes");
-        require(outcomeLabels.length <= 20, "Too many outcomes");
 
-        groupId = groupCount;
-        uint256[] memory ids = new uint256[](outcomeLabels.length);
+        string[] memory labels = new string[](2);
+        labels[0] = "Yes";
+        labels[1] = "No";
 
-        for (uint256 i = 0; i < outcomeLabels.length; i++) {
-            string memory question = string(abi.encodePacked(title, ": ", outcomeLabels[i]));
-            uint256 marketId = marketCount;
+        uint256 marketId = marketCount;
 
-            PredictionMarket market = new PredictionMarket(
-                marketId,
-                question,
-                endTime,
-                msg.sender,
-                address(conditionalToken),
-                address(oracle)
-            );
+        PredictionMarket market = new PredictionMarket(
+            marketId,
+            question,
+            labels,
+            endTime,
+            msg.sender,
+            address(conditionalToken),
+            address(oracle)
+        );
 
-            address marketAddress = address(market);
-            markets[marketId] = marketAddress;
-            allMarkets.push(marketAddress);
-            conditionalToken.setMinter(marketAddress, true);
+        address marketAddress = address(market);
+        markets[marketId] = marketAddress;
+        allMarkets.push(marketAddress);
+        marketCount++;
 
-            ids[i] = marketId;
-            marketGroupId[marketId] = groupId + 1;
-            marketCount++;
+        conditionalToken.setMinter(marketAddress, true);
 
-            emit MarketCreated(marketId, marketAddress, question, endTime, msg.sender);
-        }
+        emit MarketCreated(marketId, marketAddress, question, 2, endTime, msg.sender);
 
-        _groups[groupId] = MarketGroup({
-            title: title,
-            marketIds: ids,
-            outcomeLabels: outcomeLabels,
-            endTime: endTime,
-            creator: msg.sender
-        });
-        groupCount++;
-
-        emit MarketGroupCreated(groupId, title, ids, outcomeLabels, endTime, msg.sender);
-    }
-
-    /// @notice Get group info
-    function getGroup(uint256 groupId) external view returns (
-        string memory title,
-        uint256[] memory marketIds,
-        string[] memory outcomeLabels,
-        uint256 endTime,
-        address creator
-    ) {
-        require(groupId < groupCount, "Group does not exist");
-        MarketGroup storage g = _groups[groupId];
-        return (g.title, g.marketIds, g.outcomeLabels, g.endTime, g.creator);
+        return marketAddress;
     }
 
     /// @notice Get total number of markets

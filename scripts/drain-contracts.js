@@ -41,11 +41,11 @@ function loadArtifact(contractName) {
 async function sendMethod(web3, account, contractMethod, to, opts = {}) {
   const data = contractMethod.encodeABI();
   const gas = await contractMethod.estimateGas({ from: account.address, ...opts });
-  const nonce = await web3.qrl.getTransactionCount(account.address, "latest");
+  const nonce = await web3.qrl.getTransactionCount(account.address, "pending");
   const block = await web3.qrl.getBlock("latest");
   const baseFee = BigInt(block.baseFeePerGas || 0);
-  const maxPriorityFee = BigInt(web3.utils.toPlanck("1", "shor"));
-  const maxFee = baseFee * 2n + maxPriorityFee;
+  const maxPriorityFee = BigInt(web3.utils.toPlanck("10", "shor"));
+  const maxFee = baseFee * 3n + maxPriorityFee;
   const txObj = {
     from: account.address,
     to,

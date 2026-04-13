@@ -5,31 +5,29 @@ import "./Ownable.hyp";
 import "./IOracle.hyp";
 
 /// @title Oracle - Simple admin-controlled oracle for resolving prediction market outcomes
-/// @notice Legacy oracle — can be replaced by GovernanceOracle for decentralized voting
+/// @notice Supports multi-outcome markets: resolve with winning outcome index (0-based).
 contract Oracle is Ownable {
-    // Use same Outcome enum as IOracle
-    enum Outcome { Unresolved, Yes, No, Invalid }
-
-    mapping(uint256 => Outcome) public outcomes;
+    mapping(uint256 => uint256) public winningOutcomes;
     mapping(uint256 => bool) public isResolved;
 
-    event MarketResolved(uint256 indexed marketId, Outcome outcome);
+    event MarketResolved(uint256 indexed marketId, uint256 winningOutcome);
 
     constructor() Ownable(msg.sender) {}
 
-    /// @notice Resolve a market with a winning outcome (only admin)
-    function resolve(uint256 marketId, Outcome outcome) external onlyOwner {
+    /// @notice Resolve a market with the winning outcome index (0-based).
+    ///         For binary markets: 0 = Yes wins, 1 = No wins.
+    ///         For multi-outcome: index into the outcomeLabels array.
+    function resolve(uint256 marketId, uint256 winningOutcome) external onlyOwner {
         require(!isResolved[marketId], "Already resolved");
-        require(outcome != Outcome.Unresolved, "Invalid outcome");
 
-        outcomes[marketId] = outcome;
+        winningOutcomes[marketId] = winningOutcome;
         isResolved[marketId] = true;
 
-        emit MarketResolved(marketId, outcome);
+        emit MarketResolved(marketId, winningOutcome);
     }
 
-    /// @notice Get the outcome of a market
-    function getOutcome(uint256 marketId) external view returns (Outcome) {
-        return outcomes[marketId];
+    /// @notice Get the winning outcome index for a resolved market
+    function getWinningOutcome(uint256 marketId) external view returns (uint256) {
+        return winningOutcomes[marketId];
     }
 }

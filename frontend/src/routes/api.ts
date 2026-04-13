@@ -1,11 +1,12 @@
 import { Router, Request, Response } from "express";
-import { getMarkets, getMarketGroups, getLeaderboard, getPortfolio, getProfileData } from "../services/blockchain";
+import { getMarkets, getLeaderboard, getPortfolio, getProfileData } from "../services/blockchain";
 import { CONTRACTS, CHAIN_ID, RPC_URL } from "../config/contracts";
 import path from "path";
 import fs from "fs";
 import { ethers } from "ethers";
 import { QrlJsonRpcProvider } from "../services/qrl-provider";
 import Web3 from "@theqrl/web3";
+import { strictLimiter } from "../app";
 export const apiRouter = Router();
 
 // Load ABI helper (server-side, Hyperion artifacts)
@@ -28,12 +29,7 @@ apiRouter.get("/markets", async (req: Request, res: Response) => {
   res.json({ markets });
 });
 
-// Get all market groups (optionally filtered by category)
-apiRouter.get("/groups", async (req: Request, res: Response) => {
-  const category = req.query.category as string | undefined;
-  const groups = await getMarketGroups(category);
-  res.json({ groups });
-});
+// (Group endpoints removed — multi-outcome is now native to markets)
 
 // Get contract addresses and chain config
 apiRouter.get("/config", (_req: Request, res: Response) => {
@@ -75,7 +71,7 @@ apiRouter.get("/profile/:address", async (req: Request, res: Response) => {
 });
 
 // Trigger manual sync of blockchain events into SQLite
-apiRouter.post("/sync", async (_req: Request, res: Response) => {
+apiRouter.post("/sync", strictLimiter, async (_req: Request, res: Response) => {
   const { syncEvents } = await import("../services/indexer");
   const inserted = await syncEvents();
   res.json({ success: true, newTrades: inserted });
@@ -85,6 +81,7 @@ apiRouter.post("/sync", async (_req: Request, res: Response) => {
 apiRouter.get("/market-reserves/:marketId", async (req: Request, res: Response) => {
   try {
     const marketId = parseInt(req.params.marketId as string, 10);
+    const outcomeIndex = parseInt((req.query.outcome as string) || "0", 10);
     if (isNaN(marketId) || marketId < 0) {
       res.status(400).json({ success: false, error: "Invalid market ID" });
       return;
@@ -96,8 +93,8 @@ apiRouter.get("/market-reserves/:marketId", async (req: Request, res: Response) 
     const marketAddr = await factory.markets(marketId);
     const market = new ethers.Contract(marketAddr, marketAbi, provider);
     const [yesShares, noShares] = await Promise.all([
-      market.yesShares(),
-      market.noShares(),
+      market.yesSharesOf(outcomeIndex),
+      market.noSharesOf(outcomeIndex),
     ]);
     res.json({
       success: true,
@@ -222,7 +219,7 @@ apiRouter.get("/faucet/status", async (req: Request, res: Response) => {
 });
 
 // Server-side faucet claim: calls claimFor(recipient) so user needs zero gas
-apiRouter.post("/faucet/claim", async (req: Request, res: Response) => {
+apiRouter.post("/faucet/claim", strictLimiter, async (req: Request, res: Response) => {
   const { address } = req.body;
   if (!address || !address.match(/^(0x|Z|Q)[0-9a-fA-F]{40}$/)) {
     res.status(400).json({ success: false, error: "Invalid address" });
@@ -334,7 +331,16 @@ apiRouter.get("/is-creator/:address", async (req: Request, res: Response) => {
 });
 
 // Authorize a new market creator (admin-only, uses deployer hexseed)
-apiRouter.post("/authorize-creator", async (req: Request, res: Response) => {
+apiRouter.post("/authorize-creator", strictLimiter, async (req: Request, res: Response) => {
+  // Admin authentication: require ADMIN_SECRET header or env
+  const adminSecret = process.env.ADMIN_SECRET;
+  if (adminSecret) {
+    const provided = req.headers["x-admin-secret"] as string;
+    if (provided !== adminSecret) {
+      res.status(403).json({ error: "Forbidden: invalid admin credentials" });
+      return;
+    }
+  }
   const { address } = req.body;
   if (!address || !address.match(/^(0x|Q)[0-9a-fA-F]{40}$/)) {
     res.status(400).json({ error: "Invalid address" });

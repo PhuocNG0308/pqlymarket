@@ -15,11 +15,14 @@
     "verify": "node scripts/verify-deploy.js",
     "authorize": "node scripts/authorize-creator.js",
     "patch-web3": "node scripts/patch-web3.js",
+    "test:contracts": "node scripts/test-contracts.js",
     "build:contracts": "node scripts/hyp-compile.js",
     "build:frontend": "cd frontend && npm install && npm run build",
     "build": "npm run build:contracts && npm run build:frontend",
     "frontend:dev": "cd frontend && npm install && npm run dev",
-    "dev": "npm run build:contracts && npm run drain && npm run deploy && npm run frontend:dev"
+    "frontend:public": "cd frontend && npm install && npm run public",
+    "clean:db": "rm -f frontend/data/pqlymarket.db*",
+    "dev": "npm run build:contracts && npm run drain && npm run clean:db && npm run deploy && npm run frontend:public"
   },
   "keywords": [],
   "author": "",

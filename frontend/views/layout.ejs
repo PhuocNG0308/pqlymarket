@@ -84,6 +84,84 @@
     </button>
   </div>
 
+  <!-- Terms Modal -->
+  <div id="termsModal" class="hidden fixed inset-0 z-[200] items-center justify-center bg-black/80 backdrop-blur-md">
+    <div class="bg-surface-container-low w-full max-w-lg mx-4 rounded-xl shadow-2xl border border-outline-variant/10 overflow-hidden relative">
+      <div class="p-6 space-y-1 border-b border-outline-variant/10">
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-3xl text-tertiary" style="font-variation-settings: 'FILL' 1;">gavel</span>
+          <h2 class="text-lg font-extrabold text-on-surface tracking-tight">Terms of Service</h2>
+        </div>
+      </div>
+      <div class="p-6 space-y-4 text-sm text-on-surface-variant leading-relaxed">
+        <p>
+          <strong class="text-on-surface">PQlyMarket</strong> is a community-driven project built solely to
+          <strong class="text-primary">connect and encourage the QRL community to engage with one another</strong>
+          on the QRL 2.0 Zond platform.
+        </p>
+        <p>
+          This project <strong class="text-error">does not sell any tokens</strong> and
+          <strong class="text-error">does not manipulate Oracle outcomes</strong>.
+          All market resolutions are transparent and verifiable on-chain.
+        </p>
+        <p>
+          Please note that this is an experimental project on testnet.
+          <strong class="text-on-surface">Things may change in the future</strong> if the project gains more
+          traction and migrates to mainnet.
+        </p>
+        <p class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-base text-primary">forum</span>
+          For questions or feedback, reach out on Discord:
+          <strong class="text-primary">@redzero38</strong>
+        </p>
+      </div>
+      <div class="p-5 border-t border-outline-variant/10 flex items-center justify-end gap-3">
+        <button onclick="document.getElementById('termsModal').classList.add('hidden'); document.getElementById('termsModal').classList.remove('flex')" class="px-6 py-2.5 text-sm font-bold rounded-lg bg-surface-container-high text-on-surface hover:bg-surface-container-highest active:scale-[0.97] transition-all shadow-md">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Privacy Modal -->
+  <div id="privacyModal" class="hidden fixed inset-0 z-[200] items-center justify-center bg-black/80 backdrop-blur-md">
+    <div class="bg-surface-container-low w-full max-w-lg mx-4 rounded-xl shadow-2xl border border-outline-variant/10 overflow-hidden relative">
+      <div class="p-6 space-y-1 border-b border-outline-variant/10">
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-3xl text-tertiary" style="font-variation-settings: 'FILL' 1;">privacy_tip</span>
+          <h2 class="text-lg font-extrabold text-on-surface tracking-tight">Privacy Policy</h2>
+        </div>
+      </div>
+      <div class="p-6 space-y-4 text-sm text-on-surface-variant leading-relaxed">
+        <p>
+          <strong class="text-on-surface">PQlyMarket</strong> is a community-driven project built solely to
+          <strong class="text-primary">connect and encourage the QRL community to engage with one another</strong>
+          on the QRL 2.0 Zond platform.
+        </p>
+        <p>
+          This project <strong class="text-error">does not sell any tokens</strong> and
+          <strong class="text-error">does not manipulate Oracle outcomes</strong>.
+          All market resolutions are transparent and verifiable on-chain.
+        </p>
+        <p>
+          Please note that this is an experimental project on testnet.
+          <strong class="text-on-surface">Things may change in the future</strong> if the project gains more
+          traction and migrates to mainnet.
+        </p>
+        <p class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-base text-primary">forum</span>
+          For questions or feedback, reach out on Discord:
+          <strong class="text-primary">@redzero38</strong>
+        </p>
+      </div>
+      <div class="p-5 border-t border-outline-variant/10 flex items-center justify-end gap-3">
+        <button onclick="document.getElementById('privacyModal').classList.add('hidden'); document.getElementById('privacyModal').classList.remove('flex')" class="px-6 py-2.5 text-sm font-bold rounded-lg bg-surface-container-high text-on-surface hover:bg-surface-container-highest active:scale-[0.97] transition-all shadow-md">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Disclaimer Modal -->
   <div id="disclaimerOverlay" class="hidden fixed inset-0 z-[200] items-center justify-center bg-black/80 backdrop-blur-md">
     <div class="bg-surface-container-low w-full max-w-lg mx-4 rounded-xl shadow-2xl border border-outline-variant/10 overflow-hidden">
@@ -169,8 +247,8 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.umd.min.js"></script>
-  <script src="/js/wallet.js?v=25"></script>
-  <script src="/js/charts.js?v=2"></script>
-  <script src="/js/app.js?v=25"></script>
+  <script src="/js/wallet.js?v=27"></script>
+  <script src="/js/charts.js?v=27"></script>
+  <script src="/js/app.js?v=27"></script>
 </body>
 </html>

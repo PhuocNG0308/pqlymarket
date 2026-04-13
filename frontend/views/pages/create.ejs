@@ -38,10 +38,10 @@
       <!-- Mode Toggle -->
       <div class="flex gap-2 mb-8">
         <button id="modeStandalone" class="text-xs font-bold px-4 py-2 bg-primary text-on-primary transition-all active:scale-95" onclick="setCreateMode('standalone')">
-          Single Market
+          Binary Market
         </button>
         <button id="modeGroup" class="text-xs font-bold px-4 py-2 bg-surface-container-highest text-on-surface-variant transition-all active:scale-95" onclick="setCreateMode('group')">
-          Multi-Outcome Group
+          Multi-Outcome Market
         </button>
       </div>
 
@@ -105,13 +105,13 @@
           <button id="addOutcomeBtn" class="mt-2 text-xs text-primary font-bold hover:underline flex items-center gap-1">
             <span class="material-symbols-outlined text-sm">add</span> Add Outcome
           </button>
-          <p class="text-[10px] text-on-surface-variant mt-1">Each outcome becomes its own YES/NO market within the group. Min 2 outcomes.</p>
+          <p class="text-[10px] text-on-surface-variant mt-1">Each outcome gets its own YES/NO AMM pool inside a single market contract. Min 2 outcomes, max 20.</p>
         </div>
 
         <!-- Submit group -->
         <button id="submitCreateGroup" class="w-full bg-primary text-on-primary font-bold py-4 text-lg hover:bg-primary-container active:scale-95 transition-all">
           <span class="material-symbols-outlined align-middle mr-2">add_circle</span>
-          Create Market Group
+          Create Multi-Outcome Market
         </button>
       </div>
     </div>

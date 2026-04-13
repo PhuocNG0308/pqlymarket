@@ -6,10 +6,29 @@
     </a>
   </div>
 
+  <% 
+    let marketTitle = market.question;
+    let marketOption = "";
+    if (market.outcomeCount <= 2) {
+      if (market.question.includes("?: ")) {
+        const parts = market.question.split("?: ");
+        marketTitle = parts[0] + "?";
+        marketOption = parts[1];
+      } else if (market.question.includes(": ")) {
+        const parts = market.question.split(": ");
+        marketTitle = parts[0];
+        marketOption = parts[1];
+      }
+    }
+  %>
+
   <div class="bg-surface-container-low p-8 border-l-4 border-primary mb-8">
     <div class="flex items-center gap-2 mb-4">
       <span class="material-symbols-outlined text-primary text-3xl"><%= market.category === 'BTC' ? 'currency_bitcoin' : 'shield' %></span>
       <span class="bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-bold tracking-widest uppercase"><%= market.category %></span>
+      <% if (market.outcomeCount > 2) { %>
+        <span class="bg-tertiary/10 text-tertiary px-2 py-0.5 text-[10px] font-bold tracking-widest uppercase"><%= market.outcomeCount %> Outcomes</span>
+      <% } %>
       <% if (market.resolved) { %>
         <span class="bg-error/10 text-error px-2 py-0.5 text-[10px] font-bold tracking-widest uppercase">Resolved</span>
       <% } else { %>
@@ -18,14 +37,16 @@
     </div>
 
     <h1 class="text-3xl md:text-4xl font-extrabold text-on-surface tracking-tight leading-tight mb-8">
-      <%= market.question %>
+      <%= marketTitle %>
     </h1>
 
-    <!-- Betting Panel -->
+    <% if (market.outcomeCount <= 2) { %>
+    <!-- ═══════════════ Binary Market UI ═══════════════ -->
+
     <% if (!market.resolved) { %>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div class="bg-surface-container p-6">
-          <h3 class="text-sm font-bold text-on-surface mb-4 uppercase tracking-wider">Buy YES</h3>
+          <h3 class="text-sm font-bold text-on-surface mb-4 uppercase tracking-wider">Buy YES <%= marketOption ? `- ${marketOption}` : '' %></h3>
           <p class="text-3xl font-black text-primary mb-4"><%= market.yesPrice %>&cent;</p>
           <input type="number" id="yesAmount" placeholder="Amount (QRL)" min="0.001" step="0.001"
                  class="w-full bg-surface-container-highest text-on-surface text-sm px-4 py-3 mb-2 border-none focus:outline-none focus:ring-1 focus:ring-primary/20 placeholder:text-neutral-600" />
@@ -34,12 +55,12 @@
             <span>Avg. price: <span id="estYesAvgPrice" class="font-mono">—</span></span>
           </div>
           <p class="text-[10px] text-error mb-2 hidden" id="warnYesBuy"></p>
-          <button class="btn-buy-yes w-full bg-primary text-on-primary font-bold py-3 hover:bg-primary-container active:scale-95 transition-all" data-market-id="<%= market.id %>">
+          <button class="btn-buy-yes w-full bg-primary text-on-primary font-bold py-3 hover:bg-primary-container active:scale-95 transition-all" data-market-id="<%= market.id %>" data-outcome-index="0">
             Buy YES Shares
           </button>
         </div>
         <div class="bg-surface-container p-6">
-          <h3 class="text-sm font-bold text-on-surface mb-4 uppercase tracking-wider">Buy NO</h3>
+          <h3 class="text-sm font-bold text-on-surface mb-4 uppercase tracking-wider">Buy NO <%= marketOption ? `- ${marketOption}` : '' %></h3>
           <p class="text-3xl font-black text-on-surface-variant mb-4"><%= market.noPrice %>&cent;</p>
           <input type="number" id="noAmount" placeholder="Amount (QRL)" min="0.001" step="0.001"
                  class="w-full bg-surface-container-highest text-on-surface text-sm px-4 py-3 mb-2 border-none focus:outline-none focus:ring-1 focus:ring-primary/20 placeholder:text-neutral-600" />
@@ -48,7 +69,7 @@
             <span>Avg. price: <span id="estNoAvgPrice" class="font-mono">—</span></span>
           </div>
           <p class="text-[10px] text-error mb-2 hidden" id="warnNoBuy"></p>
-          <button class="btn-buy-no w-full bg-surface-container-highest text-on-surface font-bold py-3 hover:bg-surface-bright active:scale-95 transition-all" data-market-id="<%= market.id %>">
+          <button class="btn-buy-no w-full bg-surface-container-highest text-on-surface font-bold py-3 hover:bg-surface-bright active:scale-95 transition-all" data-market-id="<%= market.id %>" data-outcome-index="0">
             Buy NO Shares
           </button>
         </div>
@@ -57,30 +78,29 @@
       <!-- Sell Panel -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div class="bg-surface-container p-6 border-l-2 border-error/30">
-          <h3 class="text-sm font-bold text-on-surface mb-4 uppercase tracking-wider">Sell YES</h3>
+          <h3 class="text-sm font-bold text-on-surface mb-4 uppercase tracking-wider">Sell YES <%= marketOption ? `- ${marketOption}` : '' %></h3>
           <p class="text-xs text-on-surface-variant mb-2">Your YES shares: <span id="userYesShares" class="font-mono text-primary">—</span></p>
           <input type="number" id="sellYesAmount" placeholder="Shares to sell" min="0.001" step="0.001"
                  class="w-full bg-surface-container-highest text-on-surface text-sm px-4 py-3 mb-2 border-none focus:outline-none focus:ring-1 focus:ring-error/20 placeholder:text-neutral-600" />
           <p class="text-[10px] text-on-surface-variant mb-1">Est. payout: <span id="sellYesPayout" class="font-mono text-primary">—</span></p>
           <p class="text-[10px] text-error mb-2 hidden" id="warnYesSell"></p>
-          <button class="btn-sell-yes w-full bg-error/80 text-on-error font-bold py-3 hover:bg-error active:scale-95 transition-all" data-market-id="<%= market.id %>">
+          <button class="btn-sell-yes w-full bg-error/80 text-on-error font-bold py-3 hover:bg-error active:scale-95 transition-all" data-market-id="<%= market.id %>" data-outcome-index="0">
             Sell YES Shares
           </button>
         </div>
         <div class="bg-surface-container p-6 border-l-2 border-error/30">
-          <h3 class="text-sm font-bold text-on-surface mb-4 uppercase tracking-wider">Sell NO</h3>
+          <h3 class="text-sm font-bold text-on-surface mb-4 uppercase tracking-wider">Sell NO <%= marketOption ? `- ${marketOption}` : '' %></h3>
           <p class="text-xs text-on-surface-variant mb-2">Your NO shares: <span id="userNoShares" class="font-mono text-primary">—</span></p>
           <input type="number" id="sellNoAmount" placeholder="Shares to sell" min="0.001" step="0.001"
                  class="w-full bg-surface-container-highest text-on-surface text-sm px-4 py-3 mb-2 border-none focus:outline-none focus:ring-1 focus:ring-error/20 placeholder:text-neutral-600" />
           <p class="text-[10px] text-on-surface-variant mb-1">Est. payout: <span id="sellNoPayout" class="font-mono text-primary">—</span></p>
           <p class="text-[10px] text-error mb-2 hidden" id="warnNoSell"></p>
-          <button class="btn-sell-no w-full bg-error/80 text-on-error font-bold py-3 hover:bg-error active:scale-95 transition-all" data-market-id="<%= market.id %>">
+          <button class="btn-sell-no w-full bg-error/80 text-on-error font-bold py-3 hover:bg-error active:scale-95 transition-all" data-market-id="<%= market.id %>" data-outcome-index="0">
             Sell NO Shares
           </button>
         </div>
       </div>
     <% } else { %>
-      <!-- Claim Winnings for resolved markets -->
       <div class="bg-surface-container p-6 mb-8 border-l-2 border-primary">
         <h3 class="text-sm font-bold text-on-surface mb-4 uppercase tracking-wider">Market Resolved</h3>
         <p class="text-on-surface-variant text-sm mb-4">This market has been resolved. If you hold winning shares, claim your winnings below.</p>
@@ -90,6 +110,64 @@
       </div>
     <% } %>
 
+    <% } else { %>
+    <!-- ═══════════════ Multi-Outcome Market UI ═══════════════ -->
+
+    <div id="multiOutcomes" class="space-y-3 mb-8">
+      <% market.outcomes.forEach(function(o) { %>
+        <div class="bg-surface-container p-4">
+          <!-- Outcome header row -->
+          <div class="outcome-row flex items-center justify-between cursor-pointer" data-market-id="<%= market.id %>" data-outcome-index="<%= o.outcomeIndex %>">
+            <span class="text-sm text-on-surface font-bold flex-1"><%= o.label %></span>
+            <div class="flex items-center gap-3">
+              <span class="text-xs font-bold text-primary"><%= o.yesPrice %>%</span>
+              <% if (!market.resolved) { %>
+                <button class="multi-buy-yes bg-primary/10 text-primary text-[10px] font-bold px-3 py-1.5 hover:bg-primary hover:text-on-primary transition-all" data-market-id="<%= market.id %>" data-outcome-index="<%= o.outcomeIndex %>">Yes <%= o.yesPrice %>&cent;</button>
+                <button class="multi-buy-no bg-surface-container-highest text-on-surface-variant text-[10px] font-bold px-3 py-1.5 hover:bg-surface-bright transition-all" data-market-id="<%= market.id %>" data-outcome-index="<%= o.outcomeIndex %>">No <%= o.noPrice %>&cent;</button>
+              <% } else { %>
+                <span class="text-[10px] text-error font-bold uppercase">Resolved</span>
+              <% } %>
+            </div>
+          </div>
+
+          <!-- Expandable trade panel -->
+          <div id="outcomePanel-<%= o.outcomeIndex %>" class="hidden mt-4 pt-4 border-t border-outline-variant/10">
+            <% if (!market.resolved) { %>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p class="text-[10px] text-on-surface-variant uppercase tracking-widest mb-2 font-bold">Buy</p>
+                  <div class="flex gap-2 mb-2">
+                    <button class="outcome-side-btn active text-[10px] font-bold px-3 py-1 bg-primary text-on-primary transition-all" data-side="yes" data-outcome-index="<%= o.outcomeIndex %>">YES</button>
+                    <button class="outcome-side-btn text-[10px] font-bold px-3 py-1 bg-surface-container-highest text-on-surface-variant transition-all" data-side="no" data-outcome-index="<%= o.outcomeIndex %>">NO</button>
+                  </div>
+                  <input type="number" placeholder="Amount (QRL)" min="0.001" step="0.001"
+                         class="outcome-buy-amount w-full bg-surface-container-highest text-on-surface text-sm px-3 py-2 mb-2 border-none focus:outline-none focus:ring-1 focus:ring-primary/20 placeholder:text-neutral-600" data-outcome-index="<%= o.outcomeIndex %>" />
+                  <button class="outcome-buy-btn w-full bg-primary text-on-primary font-bold py-2 text-xs hover:bg-primary-container active:scale-95 transition-all" data-market-id="<%= market.id %>" data-outcome-index="<%= o.outcomeIndex %>">
+                    Buy Shares
+                  </button>
+                </div>
+                <div>
+                  <p class="text-[10px] text-on-surface-variant uppercase tracking-widest mb-2 font-bold">Sell</p>
+                  <p class="text-[10px] text-on-surface-variant mb-1">Your shares: <span class="outcome-yes-shares font-mono text-primary" data-outcome-index="<%= o.outcomeIndex %>">—</span> YES / <span class="outcome-no-shares font-mono" data-outcome-index="<%= o.outcomeIndex %>">—</span> NO</p>
+                  <input type="number" placeholder="Shares to sell" min="0.001" step="0.001"
+                         class="outcome-sell-amount w-full bg-surface-container-highest text-on-surface text-sm px-3 py-2 mb-2 border-none focus:outline-none focus:ring-1 focus:ring-error/20 placeholder:text-neutral-600" data-outcome-index="<%= o.outcomeIndex %>" />
+                  <button class="outcome-sell-btn w-full bg-error/80 text-on-error font-bold py-2 text-xs hover:bg-error active:scale-95 transition-all" data-market-id="<%= market.id %>" data-outcome-index="<%= o.outcomeIndex %>">
+                    Sell Shares
+                  </button>
+                </div>
+              </div>
+            <% } else { %>
+              <button class="multi-claim w-full bg-primary text-on-primary font-bold py-2 text-xs hover:bg-primary-container active:scale-95 transition-all" data-market-id="<%= market.id %>">
+                Claim Winnings
+              </button>
+            <% } %>
+          </div>
+        </div>
+      <% }); %>
+    </div>
+
+    <% } %>
+
     <!-- Market Stats -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
       <div>
@@ -97,12 +175,12 @@
         <p class="text-lg font-bold text-on-surface"><%= market.volume %></p>
       </div>
       <div>
-        <p class="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1">Yes Price</p>
-        <p class="text-lg font-bold text-primary"><%= market.yesPrice %>&cent;</p>
+        <p class="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1"><%= market.outcomeCount <= 2 ? 'Yes Price' : 'Outcomes' %></p>
+        <p class="text-lg font-bold text-primary"><%= market.outcomeCount <= 2 ? market.yesPrice + '¢' : market.outcomeCount %></p>
       </div>
       <div>
-        <p class="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1">No Price</p>
-        <p class="text-lg font-bold text-on-surface"><%= market.noPrice %>&cent;</p>
+        <p class="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1"><%= market.outcomeCount <= 2 ? 'No Price' : 'Liquidity' %></p>
+        <p class="text-lg font-bold text-on-surface"><%= market.outcomeCount <= 2 ? market.noPrice + '¢' : (market.liquidity || '—') %></p>
       </div>
       <div>
         <p class="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1">Traders</p>
@@ -111,3 +189,8 @@
     </div>
   </div>
 </section>
+
+<!-- Pass market data to JS -->
+<script>
+  window.__MARKET_DATA__ = <%- JSON.stringify(market) %>;
+</script>

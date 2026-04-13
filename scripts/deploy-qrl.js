@@ -66,11 +66,11 @@ async function deployContract(web3, account, artifact, args = [], value = "0") {
   });
   const gas = await deployTx.estimateGas({ from: account.address, value });
   const data = deployTx.encodeABI();
-  const nonce = await web3.qrl.getTransactionCount(account.address, "latest");
+  const nonce = await web3.qrl.getTransactionCount(account.address, "pending");
   const block = await web3.qrl.getBlock("latest");
   const baseFee = BigInt(block.baseFeePerGas || 0);
-  const maxPriorityFee = BigInt(web3.utils.toPlanck("1", "shor"));
-  const maxFee = baseFee * 2n + maxPriorityFee;
+  const maxPriorityFee = BigInt(web3.utils.toPlanck("10", "shor"));
+  const maxFee = baseFee * 3n + maxPriorityFee;
   const txObj = {
     from: account.address,
     data,
@@ -96,11 +96,11 @@ async function deployContract(web3, account, artifact, args = [], value = "0") {
 async function sendMethod(web3, account, contractMethod, to, opts = {}) {
   const data = contractMethod.encodeABI();
   const gas = await contractMethod.estimateGas({ from: account.address, ...opts });
-  const nonce = await web3.qrl.getTransactionCount(account.address, "latest");
+  const nonce = await web3.qrl.getTransactionCount(account.address, "pending");
   const block = await web3.qrl.getBlock("latest");
   const baseFee = BigInt(block.baseFeePerGas || 0);
-  const maxPriorityFee = BigInt(web3.utils.toPlanck("1", "shor"));
-  const maxFee = baseFee * 2n + maxPriorityFee;
+  const maxPriorityFee = BigInt(web3.utils.toPlanck("10", "shor"));
+  const maxFee = baseFee * 3n + maxPriorityFee;
   const txObj = {
     from: account.address,
     to,
@@ -140,6 +140,22 @@ async function main() {
   if (BigInt(balance) === 0n) {
     console.error("ERROR: Deployer has no balance. Fund the address in genesis.");
     process.exit(1);
+  }
+
+  // Wait for any pending transactions to confirm before deploying
+  console.log("Checking for pending transactions...");
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const pending = await web3.qrl.getTransactionCount(account.address, "pending");
+    const confirmed = await web3.qrl.getTransactionCount(account.address, "latest");
+    if (pending === confirmed) {
+      console.log("No pending transactions. Nonce:", confirmed.toString());
+      break;
+    }
+    console.log(`  Waiting for ${pending - confirmed} pending tx(s) to confirm... (attempt ${attempt + 1}/30)`);
+    await new Promise((r) => setTimeout(r, 3000));
+    if (attempt === 29) {
+      console.error("WARNING: Still have pending transactions after 90s. Proceeding anyway.");
+    }
   }
 
   // 1. Deploy ConditionalToken

@@ -2,7 +2,6 @@ import { Router, Request, Response } from "express";
 import { CONTRACTS, CHAIN_ID, RPC_URL } from "../config/contracts";
 import {
   getMarkets,
-  getMarketGroups,
   getFeaturedMarket,
   getQRLPriceTrend,
   getSentiment,
@@ -33,33 +32,48 @@ function getBaseLocals(activePage: string, activeCategory: string = "QRL") {
 pageRouter.get("/", async (req: Request, res: Response) => {
   const category = (req.query.category as string) || "QRL";
 
-  const [markets, groups, featured, priceTrend, sentiment, volumeChart] =
-    await Promise.all([
-      getMarkets(category),
-      getMarketGroups(category),
-      getFeaturedMarket(category),
-      getQRLPriceTrend(category),
-      getSentiment(),
-      getVolumeChart(),
-    ]);
+  try {
+    const [markets, featured, priceTrend, sentiment, volumeChart] =
+      await Promise.all([
+        getMarkets(category),
+        getFeaturedMarket(category),
+        getQRLPriceTrend(category),
+        getSentiment(),
+        getVolumeChart(),
+      ]);
 
-  // Standalone markets (not in any group)
-  const standaloneMarkets = markets.filter((m) => m.groupId === undefined);
+    // Separate binary (2 outcomes) from multi-outcome markets
+    const binaryMarkets = markets.filter((m) => m.outcomeCount <= 2);
+    const multiOutcomeMarkets = markets.filter((m) => m.outcomeCount > 2);
 
-  res.render("pages/index", {
-    title: "PQlymarket | Crypto Prediction Market",
-    ...getBaseLocals("markets", category),
-    markets: standaloneMarkets,
-    groups,
-    featured,
-    priceTrend,
-    sentiment,
-    volumeChart,
-    noMarkets: standaloneMarkets.length === 0 && groups.length === 0 && !featured,
-  });
+    res.render("pages/index", {
+      title: "PQlymarket | Crypto Prediction Market",
+      ...getBaseLocals("markets", category),
+      markets: binaryMarkets,
+      multiOutcomeMarkets,
+      featured,
+      priceTrend,
+      sentiment,
+      volumeChart,
+      noMarkets: binaryMarkets.length === 0 && multiOutcomeMarkets.length === 0 && !featured,
+    });
+  } catch (err) {
+    console.error("[Home] Failed to load markets:", (err as Error).message);
+    res.render("pages/index", {
+      title: "PQlymarket | Crypto Prediction Market",
+      ...getBaseLocals("markets", category),
+      markets: [],
+      multiOutcomeMarkets: [],
+      featured: null,
+      priceTrend: { label: "QRL Price (7d)", bars: Array(7).fill(50) },
+      sentiment: { bullish: 50, bearish: 50 },
+      volumeChart: [],
+      noMarkets: true,
+    });
+  }
 });
 
-// Market detail (standalone binary market)
+// Market detail (supports binary and multi-outcome)
 pageRouter.get("/market/:id", async (req: Request, res: Response) => {
   const marketId = parseInt(req.params.id as string, 10);
   const allMarkets = await getMarkets();
@@ -70,7 +84,7 @@ pageRouter.get("/market/:id", async (req: Request, res: Response) => {
       title: "PQlymarket | Market Not Found",
       ...getBaseLocals("markets"),
       markets: [],
-      groups: [],
+      multiOutcomeMarkets: [],
       featured: null,
       priceTrend: await getQRLPriceTrend(),
       sentiment: await getSentiment(),
@@ -84,24 +98,6 @@ pageRouter.get("/market/:id", async (req: Request, res: Response) => {
     title: `${market.question} | PQlymarket`,
     ...getBaseLocals("markets", market.category),
     market,
-  });
-});
-
-// Group detail (Polymarket-style multi-outcome)
-pageRouter.get("/group/:id", async (req: Request, res: Response) => {
-  const groupId = parseInt(req.params.id as string, 10);
-  const allGroups = await getMarketGroups();
-  const group = allGroups.find((g) => g.groupId === groupId);
-
-  if (!group) {
-    res.redirect("/");
-    return;
-  }
-
-  res.render("pages/group", {
-    title: `${group.title} | PQlymarket`,
-    ...getBaseLocals("markets", group.category),
-    group,
   });
 });
 
