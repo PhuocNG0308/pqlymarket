@@ -1,0 +1,14 @@
+{
+  "network": "zond-testnet",
+  "timestamp": "2026-04-23T00:00:00.000Z",
+  "contracts": {
+    "ConditionalToken": "Qd2A9A3Bf000137660E60b23D14fD0e2faf70c39E",
+    "Oracle": "QfA5B5dBF16Ac29d41673627D5592524ED1Ad8445",
+    "PqlToken": "Qd2BcADF662828B25a95cBBacb13036bBdda7E656",
+    "BondingCurve": "Q4ADb5f31343579AdF1B9206b72138299bF7FfbFA",
+    "LiquidityPool": "Q7d12ea308103F52FEA132415d9E99B032614928f",
+    "GovernanceOracle": "QD2Ef91B584A26475Cf564b83f46584A0f41547FF",
+    "MarketFactory": "Qc98AFD7f315c2263672a23af29a8C797D893E75d",
+    "Faucet": "Q025F182Bc0CA1e9C703999EAA0aC03a2edfd8179"
+  }
+}

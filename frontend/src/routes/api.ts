@@ -6,7 +6,7 @@ import fs from "fs";
 import { ethers } from "ethers";
 import { QrlJsonRpcProvider } from "../services/qrl-provider";
 import Web3 from "@theqrl/web3";
-import { strictLimiter } from "../app";
+import { strictLimiter } from "../middlewares/limiters";
 export const apiRouter = Router();
 
 // Load ABI helper (server-side, Hyperion artifacts)

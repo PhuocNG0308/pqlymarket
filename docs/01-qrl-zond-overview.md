@@ -21,13 +21,13 @@ QRL 2.0 (Zond) is a post-quantum secure, EVM-compatible blockchain. This is the 
 - **Consensus Layer**: `Qrysm` (based on Ethereum's Prysm) — PoS consensus, beacon chain.
 
 ### Network Params
-- **Chain ID**: `32382`
-- **RPC Proxy (recommended)**: `https://rpc.pqlymarket.com/`
-- **RPC Endpoint (local node)**: `http://localhost:8545`
+- **Chain ID**: `1337`
+- **RPC Proxy (recommended)**: `https://qrlwallet.com/api/qrl-rpc/testnet/`
+- **RPC Endpoint (local node)**: `https://qrlwallet.com/api/qrl-rpc/testnet`
 - **Engine Endpoint (internal)**: `http://localhost:8551`
 - **Beacon API (local node)**: `http://localhost:3500`
 
-> **Note**: It is recommended to use the RPC Proxy at `https://rpc.pqlymarket.com/` to connect to the Public Testnet without running your own node. If necessary, you can run a Kurtosis private network for local development.
+> **Note**: It is recommended to use the RPC Proxy at `https://qrlwallet.com/api/qrl-rpc/testnet/` to connect to the Public Testnet without running your own node. If necessary, you can run a Kurtosis private network for local development.
 
 ### Smart Contract Compiler
 - **Hyperion**: Fork of the Solidity compiler for the Zond Virtual Machine (ZVM).

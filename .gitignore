@@ -18,7 +18,6 @@ artifacts/
 *.pem
 *.key
 *.pfx
-deployment.json
 
 # Logs
 logs

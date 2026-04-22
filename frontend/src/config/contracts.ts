@@ -51,4 +51,4 @@ function loadDeployment(): ContractAddresses {
 export const CONTRACTS: ContractAddresses = loadDeployment();
 
 export const CHAIN_ID = parseInt(process.env.CHAIN_ID || "1337", 10);
-export const RPC_URL = process.env.RPC_URL || "https://rpc.pqlymarket.com/";
+export const RPC_URL = process.env.RPC_URL || "https://qrlwallet.com/api/qrl-rpc/testnet/";

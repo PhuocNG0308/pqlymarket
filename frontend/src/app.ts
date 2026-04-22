@@ -1,10 +1,10 @@
 import express from "express";
 import expressLayouts from "express-ejs-layouts";
 import helmet from "helmet";
-import rateLimit from "express-rate-limit";
 import path from "path";
 import { pageRouter } from "./routes/index";
 import { apiRouter } from "./routes/api";
+import { globalLimiter, apiLimiter } from "./middlewares/limiters";
 
 export const app = express();
 
@@ -37,8 +37,8 @@ app.use(
         imgSrc: ["'self'", "data:", "https:"],
         connectSrc: [
           "'self'",
-          "https://rpc.pqlymarket.com",
-          "http://localhost:8545",
+          "https://qrlwallet.com/api/qrl-rpc/testnet",
+          "https://qrlwallet.com/api/qrl-rpc/testnet",
           "http://localhost:8546",
         ],
         frameSrc: ["'none'"],
@@ -56,32 +56,7 @@ app.use(
 // ═══════════════════════════════════════════
 // Global Rate Limiter (anti-bot/DDoS)
 // ═══════════════════════════════════════════
-const globalLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000,  // 1 minute
-  max: 120,                   // 120 requests per minute per IP
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "Too many requests, please try again later." },
-});
 app.use(globalLimiter);
-
-// Strict rate limiter for sensitive endpoints (faucet, admin)
-export const strictLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,  // 15 minutes
-  max: 5,                     // 5 requests per 15 min per IP
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "Rate limit exceeded. Try again in 15 minutes." },
-});
-
-// API rate limiter (moderate)
-export const apiLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000,  // 1 minute
-  max: 60,                    // 60 API calls per minute
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "API rate limit exceeded." },
-});
 
 // ═══════════════════════════════════════════
 // robots.txt (anti-crawler)

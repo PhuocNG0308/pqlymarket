@@ -88,7 +88,7 @@ npm run compile
 HEXSEED=0x... npm run deploy
 
 # Hoặc chỉ định RPC URL rõ ràng
-HEXSEED=0x... RPC_URL=https://rpc.pqlymarket.com/ npm run deploy
+HEXSEED=0x... RPC_URL=https://qrlwallet.com/api/qrl-rpc/testnet/ npm run deploy
 ```
 
 ## Official QRL Contract Example (Hyperion approach)
@@ -108,7 +108,7 @@ Theo hÆ°á»›ng dáº«n táº¡i [02-windows-install.md](./02-windows-insta
 ### Step 3: Cáº¥u hÃ¬nh config.json
 ```json
 {
-  "provider": "https://rpc.pqlymarket.com/",
+  "provider": "https://qrlwallet.com/api/qrl-rpc/testnet/",
   "hexseed": "0x<your_hexseed>",
   "contract_address": "contract_address_here",
   "tx_required_confirmations": 12
@@ -163,7 +163,7 @@ npm run compile
 HEXSEED=0x... npm run deploy
 
 # Hoặc chỉ định RPC URL
-HEXSEED=0x... RPC_URL=https://rpc.pqlymarket.com/ npm run deploy
+HEXSEED=0x... RPC_URL=https://qrlwallet.com/api/qrl-rpc/testnet/ npm run deploy
 ```
 
 Xem chi tiáº¿t táº¡i [deployment.json](../deployment.json).
@@ -215,7 +215,7 @@ PQlyMarket là nền tảng prediction market phi tập trung chạy trên QRL 2
 ┌──────────────────▼──────────────────────────┐
 │           QRL 2.0 Zond Testnet               │
 │    gqrl (Execution) + Qrysm (Consensus)     │
-│    Chain ID: 32382 | RPC Proxy: qrlwallet.com     │
+│    Chain ID: 1337 | RPC Proxy: qrlwallet.com     │
 └──────────────────────────────────────────────┘
 ```
 
@@ -255,7 +255,7 @@ PQlyMarket là nền tảng prediction market phi tập trung chạy trên QRL 2
 | Frontend | Next.js 16+ / React 19+ / TypeScript |
 | Styling | Tailwind CSS |
 | Wallet | MetaMask (local dev) / QRL Web3 Wallet Extension (Zond) |
-| Testing | Hardhat local network (Chain ID 32382) |
+| Testing | Hardhat local network (Chain ID 1337) |
 | QRL Node | gqrl (execution) + Qrysm beacon-chain (consensus) |
 
 ## Flow chính
@@ -314,7 +314,7 @@ PQlyMarket/
 ﻿# PQlyMarket - Development Roadmap
 
 ## Phase 1: Foundation Setup âœ…
-- [x] Setup project vá»›i QRL Zond network config (Chain ID 32382)
+- [x] Setup project vá»›i QRL Zond network config (Chain ID 1337)
 - [x] Ban Ä‘áº§u dÃ¹ng Hardhat + Solidity, sau Ä‘Ã³ chuyá»ƒn hoÃ n toÃ n sang Hyperion
 
 ## Phase 2: Smart Contracts âœ…
@@ -371,7 +371,7 @@ PQlyMarket/
    - `npm run deploy` â†’ QRL Zond deploy (@theqrl/web3)
 2. **Web3 Library**: Sá»­ dá»¥ng `@theqrl/web3` (khÃ´ng dÃ¹ng ethers.js/Hardhat)
 3. **RPC Methods**: Prefix `qrl_` thay vÃ¬ `eth_` (vÃ­ dá»¥: `qrl_sendTransaction`)
-4. **Chain ID**: `32382` cho testnet
+4. **Chain ID**: `1337` cho testnet
 5. **Addresses**: QRL Zond dÃ¹ng prefix `Z` thay vÃ¬ `0x`
 6. **Binaries cáº§n thiáº¿t**: `gqrl` (execution, go-qrl v0.3.0) + `beacon-chain` (consensus) + `validator`
 7. **Docker images má»›i**: `qrledger/go-qrl:v0.3.0` (thay tháº¿ `qrledger/go-zond`), qrysm build from source
@@ -534,7 +534,7 @@ QRL_WEB3_WALLET_PROVIDER_INFO = {
 ```typescript
 // src/configuration/qrlBlockchainConfig.ts
 QRL_MAINNET = { chainId: "0x1",   chainName: "Zond Mainnet", rpcUrls: ["http://127.0.0.1:8545"] }
-QRL_TESTNET = { chainId: "0x7e7e", chainName: "Zond Testnet", rpcUrls: ["https://rpc.pqlymarket.com/"] }
+QRL_TESTNET = { chainId: "0x7e7e", chainName: "Zond Testnet", rpcUrls: ["https://qrlwallet.com/api/qrl-rpc/testnet/"] }
 
 DEFAULT_BLOCKCHAIN = QRL_BLOCKCHAINS[1]  // Testnet is default
 ```
@@ -778,7 +778,7 @@ ethers.js BrowserProvider (eth_*)
 | Dynamic `mapEthMethod()` (prefix-agnostic) | âœ… |
 | `convertRequestParams` uses base method name | âœ… |
 | `hasAddressResponse()` is prefix-agnostic | âœ… |
-| Chain ID from config (`config.chainId \|\| 32382`) | ✅ |
+| Chain ID from config (`config.chainId \|\| 1337`) | ✅ |
 
 ### Current Flow
 1. **Auto-detection**: During `connectToWallet()`, tries `qrl_requestAccounts` first, falls back to `zond_requestAccounts` (v0.1.1 legacy)
@@ -788,7 +788,7 @@ ethers.js BrowserProvider (eth_*)
 5. **Reset**: Cleared on disconnect, resets to `"qrl_"`
 
 ### Read-Only Bypass
-LOCAL_METHODS always go directly to the RPC endpoint via `fetch()` with `qrl_*` prefix. By default this is the RPC Proxy at `https://rpc.pqlymarket.com/`, bypassing the wallet extension entirely.
+LOCAL_METHODS always go directly to the RPC endpoint via `fetch()` with `qrl_*` prefix. By default this is the RPC Proxy at `https://qrlwallet.com/api/qrl-rpc/testnet/`, bypassing the wallet extension entirely.
 
 **Verdict**: Proxy is production-ready.
 
@@ -848,7 +848,7 @@ DApp â†’ qrl_sendTransaction â†’ Wallet Middleware Pipeline
 ### Chain Selection
 - Wallet uses `StorageUtil.getActiveBlockChain()` for RPC URL
 - After `wallet_addQRLChain` succeeds, the configured chain is activated
-- For testnet: uses RPC Proxy at `https://rpc.pqlymarket.com/`
+- For testnet: uses RPC Proxy at `https://qrlwallet.com/api/qrl-rpc/testnet/`
 - For local dev: uses `http://127.0.0.1:8545` (Chain ID 0x7e7f)
 - All wallet-to-node communication goes through the active chain's RPC URL
 
@@ -859,7 +859,7 @@ DApp â†’ qrl_sendTransaction â†’ Wallet Middleware Pipeline
 ## 5. Chain (gqrl) âœ…
 
 - go-qrl v0.3.0: `qrl_*` RPC prefix (built from source)
-- Chain ID: 32382 (0x7e7e) for public testnet, 32383 (0x7e7f) for local docker
+- Chain ID: 1337 (0x7e7e) for public testnet, 32383 (0x7e7f) for local docker
 - Q-prefix addresses throughout
 - Supports all standard EVM opcodes including DUP9, SWAP8â€“SWAP10
 - ZVM (Zond Virtual Machine) is EVM-compatible with post-quantum signatures (ML-DSA-87)

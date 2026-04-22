@@ -44,8 +44,34 @@ export class QrlJsonRpcProvider extends ethers.JsonRpcProvider {
       params: this._convertAddresses(p.params, "0x", "Q"),
     }));
 
+    // If Ethers tries to send an array of batch requests
+    // (which our QRL endpoint explicitly rejects), we must execute them individually.
+    if (translated.length > 1) {
+      const results = [];
+      for (const req of translated) {
+        const res = await fetch(this._rpcUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(req),
+        }).then(r => r.json());
+        
+        // Normalize
+        const resObj = Array.isArray(res) ? res[0] : res;
+        
+        const base: any = {
+           id: req.id,
+           jsonrpc: resObj.jsonrpc || "2.0"
+        };
+        if (resObj.error) base.error = resObj.error;
+        if (resObj.result !== undefined) base.result = resObj.result;
+        
+        results.push(base);
+      }
+      return results as any;
+    }
+
     // Send as single request (not batch) since proxy expects that
-    const body = translated.length === 1 ? translated[0] : translated;
+    const body = translated[0];
 
     const response = await fetch(this._rpcUrl, {
       method: "POST",
@@ -64,7 +90,7 @@ export class QrlJsonRpcProvider extends ethers.JsonRpcProvider {
     // because ethers.js checks `"error" in resp` (key existence, not truthiness).
     return results.map((r: any, i: number) => {
       const base: any = {
-        id: payloads[i]?.id ?? r.id,
+        id: body.id ?? r.id,
         jsonrpc: r.jsonrpc || "2.0",
       };
       if (r.error !== undefined && r.error !== null) {

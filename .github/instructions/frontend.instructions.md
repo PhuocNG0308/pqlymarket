@@ -113,7 +113,7 @@ var wei = BigInt(rawBal);
 ### Server-side (Express routes via @theqrl/web3 v0.4.0):
 ```javascript
 import Web3 from '@theqrl/web3';
-const web3 = new Web3('https://rpc.pqlymarket.com/');
+const web3 = new Web3('https://qrlwallet.com/api/qrl-rpc/testnet/');
 const contract = new web3.qrl.Contract(abi, address);
 const data = await contract.methods.getMarket(id).call();
 ```
@@ -148,8 +148,8 @@ window.PQlyWallet = {
 ## Configuration
 - Contract addresses: `frontend/src/config/contracts.ts` (loaded from `deployment.json`)
 - Client config injected via EJS template as `window.__PQLY_CONFIG__`
-- Chain ID: 32382 (public testnet via RPC proxy), 32383 (local Docker)
-- RPC Proxy (default): `https://rpc.pqlymarket.com/`
+- Chain ID: 1337 (public testnet via RPC proxy), 32383 (local Docker)
+- RPC Proxy (default): `https://qrlwallet.com/api/qrl-rpc/testnet/`
 
 ## Reference
 - Full wallet architecture: `docs/09-qrl-wallet-extension-internals.md`

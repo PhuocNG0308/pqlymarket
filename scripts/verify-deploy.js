@@ -5,7 +5,7 @@ const { Web3 } = require("@theqrl/web3");
 const fs = require("fs");
 const path = require("path");
 
-const RPC_URL = process.env.RPC_URL || "https://rpc.pqlymarket.com/";
+const RPC_URL = process.env.RPC_URL || "https://qrlwallet.com/api/qrl-rpc/testnet/";
 const web3 = new Web3(new Web3.providers.HttpProvider(RPC_URL));
 
 function loadAbi(name) {

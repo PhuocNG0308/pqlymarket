@@ -4,7 +4,7 @@
 To verify the compatibility between QRL 2.0 (Zond) blockchain, Hyperion, and the PQlyMarket application layers.
 
 ## Stack Overview
-- **Network**: QRL 2.0 Testnet (Chain ID `32382`)
+- **Network**: QRL 2.0 Testnet (Chain ID `1337`)
 - **VM**: Zond Virtual Machine (EVM compatible)
 - **Compiler**: `@theqrl/hypc ~0.0.2`
 - **Frontend library**: `@theqrl/web3`

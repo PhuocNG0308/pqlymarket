@@ -3,8 +3,13 @@ const fs = require("fs");
 const path = require("path");
 
 async function main() {
-  const web3 = new Web3(process.env.RPC_URL || "https://rpc.pqlymarket.com/");
-  const hexseed = process.env.HEXSEED || "0x0100005290731d5827bab3001398170c4fd044a4fa65829bbd3ef0d353d75dca83b6f972a12df64d80116a6d839f84a660cfb0";
+  const web3 = new Web3(process.env.RPC_URL || "https://qrlwallet.com/api/qrl-rpc/testnet/");
+  const hexseed = process.env.HEXSEED;
+  
+  if (!hexseed) {
+    console.error("Error: HEXSEED environment variable missing from .env");
+    process.exit(1);
+  }
   const account = web3.qrl.accounts.seedToAccount(hexseed);
   web3.qrl.accounts.wallet.add(account);
 

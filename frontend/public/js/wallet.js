@@ -40,7 +40,7 @@
   // ---- Direct RPC to gqrl ----
 
   function rpcCall(method, params) {
-    var url = config.rpcUrl || "https://rpc.pqlymarket.com/";
+    var url = config.rpcUrl || "https://qrlwallet.com/api/qrl-rpc/testnet/";
     return fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -580,7 +580,7 @@
               params: [{
                 chainId: localChainId,
                 chainName: "QRL Zond Testnet",
-                rpcUrls: [config.rpcUrl || "https://rpc.pqlymarket.com/"],
+                rpcUrls: [config.rpcUrl || "https://qrlwallet.com/api/qrl-rpc/testnet/"],
                 nativeCurrency: { name: "Quanta", symbol: "QRL", decimals: 18 },
                 blockExplorerUrls: [],
                 iconUrls: [],

@@ -87,7 +87,7 @@ npm run compile
 HEXSEED=0x... npm run deploy
 
 # Or specify RPC URL explicitly
-HEXSEED=0x... RPC_URL=https://rpc.pqlymarket.com/ npm run deploy
+HEXSEED=0x... RPC_URL=https://qrlwallet.com/api/qrl-rpc/testnet/ npm run deploy
 ```
 
 ## Official QRL Contract Example (Hyperion approach)
@@ -107,7 +107,7 @@ Follow the instructions at [02-windows-install.md](./02-windows-install.md) and 
 ### Step 3: Configure config.json
 ```json
 {
-  "provider": "https://rpc.pqlymarket.com/",
+  "provider": "https://qrlwallet.com/api/qrl-rpc/testnet/",
   "hexseed": "0x<your_hexseed>",
   "contract_address": "contract_address_here",
   "tx_required_confirmations": 12
@@ -162,7 +162,7 @@ npm run compile
 HEXSEED=0x... npm run deploy
 
 # Or specify RPC URL
-HEXSEED=0x... RPC_URL=https://rpc.pqlymarket.com/ npm run deploy
+HEXSEED=0x... RPC_URL=https://qrlwallet.com/api/qrl-rpc/testnet/ npm run deploy
 ```
 
 See details in [deployment.json](../deployment.json).

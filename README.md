@@ -87,9 +87,9 @@ Full QRL 2.0 Zond Network documentation can be found in the `docs/` directory:
 
 | Parameter | Value |
 |-----------|-------|
-| **Chain ID** | `32382` |
-| **RPC Proxy (recommended)** | `https://rpc.pqlymarket.com/` |
-| **Local Node RPC** | `http://localhost:8545` |
+| **Chain ID** | `1337` |
+| **RPC Proxy (recommended)** | `https://qrlwallet.com/api/qrl-rpc/testnet/` |
+| **Local Node RPC** | `https://qrlwallet.com/api/qrl-rpc/testnet` |
 | **Web3 Library** | `@theqrl/web3` (Required for Post-Quantum signatures) |
 | **RPC Prefix** | `qrl_` (Replaces Ethereum's `eth_` prefix) |
 

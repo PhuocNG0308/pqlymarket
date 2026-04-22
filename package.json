@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Decentralized prediction market (Polymarket clone) built on **QRL 2.0 Zond Testnet** - post-quantum secure, EVM-compatible blockchain.",
   "main": "index.js",
+  "engines": {
+    "node": ">=22.22.2"
+  },
   "directories": {
     "doc": "docs"
   },
@@ -29,7 +32,7 @@
   "license": "ISC",
   "dependencies": {
     "@theqrl/hypc": "^0.0.2",
-    "@theqrl/web3": "^0.4.0",
+    "@theqrl/web3": "^0.3.3",
     "@theqrl/web3-zond-accounts": "^0.3.3",
     "dotenv": "^17.3.1"
   }

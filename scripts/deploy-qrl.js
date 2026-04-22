@@ -10,7 +10,7 @@
  *
  * Environment:
  *   HEXSEED   - QRL hexseed for the deployer account (48 bytes)
- *   RPC_URL   - QRL JSON-RPC endpoint (default: https://rpc.pqlymarket.com/)
+ *   RPC_URL   - QRL JSON-RPC endpoint (default: https://qrlwallet.com/api/qrl-rpc/testnet/)
  */
 
 require("dotenv").config();
@@ -19,7 +19,7 @@ const fs = require("fs");
 const path = require("path");
 
 // ── Configuration ────────────────────────────────────────────
-const RPC_URL = process.env.RPC_URL || "https://rpc.pqlymarket.com/";
+const RPC_URL = process.env.RPC_URL || "https://qrlwallet.com/api/qrl-rpc/testnet/";
 const DEPLOYER_HEXSEED = process.env.HEXSEED;
 
 if (!DEPLOYER_HEXSEED) {

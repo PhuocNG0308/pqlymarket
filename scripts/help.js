@@ -144,7 +144,7 @@ for (const group of COMMANDS) {
 
 console.log(`${DIM}  Environment variables:${RESET}`);
 console.log(`  ${DIM}HEXSEED${RESET}        QRL hexseed cho deployer account (bắt buộc cho deploy/drain/fill)`);
-console.log(`  ${DIM}RPC_URL${RESET}        QRL JSON-RPC endpoint (mặc định: https://rpc.pqlymarket.com/)`);
+console.log(`  ${DIM}RPC_URL${RESET}        QRL JSON-RPC endpoint (mặc định: https://qrlwallet.com/api/qrl-rpc/testnet/)`);
 console.log(`  ${DIM}FAUCET_AMOUNT${RESET}  Số QRL nạp vào Faucet khi chạy fill (mặc định: 40000)`);
 console.log(`  ${DIM}BC_AMOUNT${RESET}      Số QRL nạp vào BondingCurve khi chạy fill (mặc định: 0)`);
 console.log(`  ${DIM}LP_AMOUNT${RESET}      Số QRL nạp vào LiquidityPool khi chạy fill (mặc định: 0)`);

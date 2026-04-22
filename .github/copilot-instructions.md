@@ -7,16 +7,16 @@ PQlyMarket is a decentralized prediction market platform (Polymarket clone) buil
 - **Smart Contracts**: Hyperion ^0.0.2 (QRL's Solidity fork), compiled via `@theqrl/hypc`
 - **Web3 Library**: `@theqrl/web3` for all blockchain interactions
 - **Frontend**: Express + EJS + TypeScript + Tailwind CSS
-- **Blockchain**: QRL 2.0 Zond Testnet (Chain ID: 32382)
-  - RPC Proxy (recommended): https://rpc.pqlymarket.com/
-  - Local Zond node (gqrl): http://localhost:8545
+- **Blockchain**: QRL 2.0 Zond Testnet (Chain ID: 1337)
+  - RPC Proxy (recommended): https://qrlwallet.com/api/qrl-rpc/testnet/
+  - Local Zond node (gqrl): https://qrlwallet.com/api/qrl-rpc/testnet
 - **Wallet**: QRL Web3 Wallet Extension
 
 ## QRL 2.0 Zond Specifics
 - **Hyperion**: QRL's fork of Solidity compiler for Zond VM. Uses `pragma hyperion` instead of `pragma solidity`. Repo: https://github.com/theQRL/hyperion
 - JSON-RPC methods use `qrl_` prefix instead of `eth_` (e.g., `qrl_blockNumber`, `qrl_sendTransaction`)
 - Addresses use `Q` prefix instead of `0x` on Zond (e.g., `Q20fe5d...`)
-- Chain ID is `32382` for testnet
+- Chain ID is `1337` for testnet
 - Post-quantum signature schemes: XMSS (stateful) and ML-DSA-87 (stateless, upgraded from Dilithium 5)
 
 ## Smart Contract Architecture
