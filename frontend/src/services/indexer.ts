@@ -122,8 +122,8 @@ export async function syncEvents(): Promise<number> {
     let marketCount: number;
     try {
       marketCount = Number(await factory.marketCount());
-    } catch {
-      console.warn("[Indexer] Cannot reach MarketFactory, skipping sync");
+    } catch (e: any) {
+      console.warn(`[Indexer] Cannot reach MarketFactory at ${CONTRACTS.MarketFactory}, skipping sync. Error: ${e.message}`);
       return 0;
     }
 
