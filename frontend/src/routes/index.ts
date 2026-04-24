@@ -22,7 +22,7 @@ function getBaseLocals(activePage: string, activeCategory: string = "QRL") {
     activePage,
     activeCategory,
     categories,
-    rpcUrl: RPC_URL,
+    rpcUrl: "/api/rpc", // ✅ Same-origin proxy bypasses CORS & Mixed Content
     chainId: CHAIN_ID,
     contracts: CONTRACTS,
   };

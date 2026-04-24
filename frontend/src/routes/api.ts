@@ -9,6 +9,24 @@ import Web3 from "@theqrl/web3";
 import { strictLimiter } from "../middlewares/limiters";
 export const apiRouter = Router();
 
+// ==========================================
+// 🚀 Public RPC Proxy (CORS & Mixed Content Bypass)
+// ==========================================
+apiRouter.post("/rpc", async (req: Request, res: Response) => {
+  try {
+    const fetchRes = await fetch(RPC_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req.body)
+    });
+    const data = await fetchRes.json();
+    return res.json(data);
+  } catch (error: any) {
+    console.error("[RPC Proxy Error]:", error.message);
+    return res.status(502).json({ error: "Failed to connect to blockchain node" });
+  }
+});
+
 // Load ABI helper (server-side, Hyperion artifacts)
 function loadABI(contractName: string): ethers.InterfaceAbi {
   const abiPath = path.join(
