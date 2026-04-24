@@ -37,9 +37,12 @@ app.use(
         imgSrc: ["'self'", "data:", "https:"],
         connectSrc: [
           "'self'",
-          "https://qrlwallet.com/api/qrl-rpc/testnet",
+          "https://qrlwallet.com/api/qrl-rpc/testnet/",
           "https://qrlwallet.com/api/qrl-rpc/testnet",
           "http://localhost:8546",
+          "ws:",
+          "wss:",
+          "*"
         ],
         frameSrc: ["'none'"],
         objectSrc: ["'none'"],
